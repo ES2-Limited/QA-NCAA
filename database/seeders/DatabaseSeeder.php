@@ -9,11 +9,14 @@ use App\Models\ChecklistItem;
 use App\Models\CorrectiveActionPlan;
 use App\Models\Department;
 use App\Models\Directorate;
+use App\Models\Document;
 use App\Models\Finding;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -207,9 +210,9 @@ class DatabaseSeeder extends Seeder
                 'email' => 'director@ncaa.gov.ng',
                 'staff_id' => 'NCAA/DIR/002',
                 'phone' => '+234 805 777 8899',
-                'directorate_code' => 'DOLG',
-                'department_code' => 'DOLG-FLT',
-                'unit_code' => 'FLT-RAMP',
+                'directorate_code' => 'DSD',
+                'department_code' => 'DSD-QA',
+                'unit_code' => 'QA-AUD',
             ],
             [
                 'role' => 'auditee',
@@ -363,5 +366,48 @@ class DatabaseSeeder extends Seeder
                 'status' => 'pending_approval',
             ]
         );
+
+        // 6. Document Library Sample Files & Seed Records
+        Storage::disk('public')->makeDirectory('documents');
+
+        $sampleFiles = [
+            [
+                'title' => 'Internal QA Programme Requirements',
+                'description' => 'Mandatory framework and operating procedures for NCAA Directorate internal quality audits.',
+                'filename' => 'internal_qa_programme_requirements.pdf',
+                'unit_code' => 'QA-AUD',
+            ],
+            [
+                'title' => 'AMO Surveillance Checklist Guidelines',
+                'description' => 'Inspection criteria and oversight protocols for Approved Maintenance Organizations under Nig.CARs Part 6.',
+                'filename' => 'amo_surveillance_checklist_guidelines.pdf',
+                'unit_code' => 'AIR-AMO',
+            ],
+        ];
+
+        foreach ($sampleFiles as $sample) {
+            $sourcePath = database_path('seeders/files/'.$sample['filename']);
+            $targetStoragePath = 'documents/'.$sample['filename'];
+
+            if (File::exists($sourcePath)) {
+                $fileBytes = File::get($sourcePath);
+                Storage::disk('public')->put($targetStoragePath, $fileBytes);
+                $size = File::size($sourcePath);
+                $mimeType = 'application/pdf';
+
+                Document::firstOrCreate(
+                    ['title' => $sample['title']],
+                    [
+                        'description' => $sample['description'],
+                        'file_path' => $targetStoragePath,
+                        'original_name' => $sample['filename'],
+                        'mime_type' => $mimeType,
+                        'size' => $size,
+                        'unit_id' => $createdUnits[$sample['unit_code']]->id ?? null,
+                        'uploaded_by' => $seededUsers['lead_auditor']->id,
+                    ]
+                );
+            }
+        }
     }
 }

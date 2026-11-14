@@ -5,10 +5,10 @@ use App\Livewire\AuditorDashboard;
 use App\Livewire\FindingReport;
 use Illuminate\Support\Facades\Route;
 
-// Redirect root to dashboard or auditor
+// Root / Home route
 Route::get('/', function () {
     return redirect()->route('dashboard');
-});
+})->name('home');
 
 Route::middleware(['auth'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

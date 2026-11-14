@@ -22,6 +22,14 @@
                     @endhasanyrole
                 </flux:sidebar.group>
 
+                @hasanyrole('system_admin|lead_auditor')
+                    <flux:sidebar.group :heading="__('Quality Documents')" class="grid">
+                        <flux:sidebar.item icon="document-text" :href="route('admin.documents')" :current="request()->routeIs('admin.documents')" wire:navigate>
+                            {{ __('Document Library') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endhasanyrole
+
                 @hasrole('system_admin')
                     <flux:sidebar.group :heading="__('Administration')" class="grid">
                         <flux:sidebar.item icon="building-office-2" :href="route('admin.directorates')" :current="request()->routeIs('admin.directorates')" wire:navigate>
