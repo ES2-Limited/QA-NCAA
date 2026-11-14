@@ -7,11 +7,15 @@ use App\Models\AuditResponse;
 use App\Models\Checklist;
 use App\Models\ChecklistItem;
 use App\Models\CorrectiveActionPlan;
+use App\Models\Department;
 use App\Models\Directorate;
 use App\Models\Finding;
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,51 +24,51 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Create Key NCAA Users
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@ncaa.gov.ng'],
-            [
-                'name' => 'Capt. Musa Bello',
-                'password' => Hash::make('password'),
-                'role' => 'admin',
-                'department' => 'Directorate of Special Duties (DSD)',
-                'staff_id' => 'NCAA/DSD/001',
-                'phone' => '+234 803 123 4567',
-            ]
-        );
+        // Reset cached roles and permissions
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $auditor1 = User::firstOrCreate(
-            ['email' => 'auditor@ncaa.gov.ng'],
-            [
-                'name' => 'Engr. Folake Adeleke',
-                'password' => Hash::make('password'),
-                'role' => 'lead_auditor',
-                'department' => 'Quality Assurance & Internal Audit Unit',
-                'staff_id' => 'NCAA/QA/042',
-                'phone' => '+234 802 987 6543',
-            ]
-        );
+        // 1. Spatie RBAC Roles (Exactly the 7 requested roles)
+        $roles = [
+            'system_admin',
+            'lead_auditor',
+            'field_auditor',
+            'reviewer',
+            'head_of_audit',
+            'director',
+            'auditee',
+        ];
 
-        $rep = User::firstOrCreate(
-            ['email' => 'operations@ncaa.gov.ng'],
-            [
-                'name' => 'Mr. Ibrahim Yakubu',
-                'password' => Hash::make('password'),
-                'role' => 'directorate_rep',
-                'department' => 'Directorate of Airworthiness Standards (DAWS)',
-                'staff_id' => 'NCAA/DAWS/109',
-                'phone' => '+234 805 555 1122',
-            ]
-        );
+        foreach ($roles as $roleName) {
+            Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
+        }
 
-        // 2. Create NCAA Directorates
-        $directorates = [
+        // 2. NCAA Organizational Hierarchy: Directorates -> Departments -> Units
+        $directoratesData = [
             [
                 'code' => 'DSD',
                 'name' => 'Directorate of Special Duties',
                 'head_of_directorate' => 'Director of Special Duties',
                 'email' => 'dsd@ncaa.gov.ng',
                 'description' => 'Oversees specialized audits, strategic quality assurance, presidential VIP flight protocols, and ministerial directives.',
+                'departments' => [
+                    [
+                        'code' => 'DSD-QA',
+                        'name' => 'Quality Assurance & Internal Audit Department',
+                        'head_of_department' => 'Engr. Folake Adeleke',
+                        'units' => [
+                            ['code' => 'QA-AUD', 'name' => 'Internal Audit Execution Unit', 'head_of_unit' => 'Capt. Musa Bello'],
+                            ['code' => 'QA-SURV', 'name' => 'Surveillance & Inspections Unit', 'head_of_unit' => 'Mr. Chidi Obi'],
+                        ],
+                    ],
+                    [
+                        'code' => 'DSD-VIP',
+                        'name' => 'Special Flights & Presidential Protocols',
+                        'head_of_department' => 'Mr. Usman Danladi',
+                        'units' => [
+                            ['code' => 'VIP-OPS', 'name' => 'VIP Flight Coordination Unit', 'head_of_unit' => 'Mrs. Halima Aliyu'],
+                        ],
+                    ],
+                ],
             ],
             [
                 'code' => 'DAWS',
@@ -72,6 +76,16 @@ class DatabaseSeeder extends Seeder
                 'head_of_directorate' => 'Engr. K. O. Balogun',
                 'email' => 'airworthiness@ncaa.gov.ng',
                 'description' => 'Aircraft registration, airworthiness certification, maintenance organization approval, and continuing safety monitoring.',
+                'departments' => [
+                    [
+                        'code' => 'DAWS-AIR',
+                        'name' => 'Airworthiness Inspection & Certification',
+                        'head_of_department' => 'Engr. B. Aliyu',
+                        'units' => [
+                            ['code' => 'AIR-AMO', 'name' => 'AMO Surveillance Unit', 'head_of_unit' => 'Engr. P. Okeke'],
+                        ],
+                    ],
+                ],
             ],
             [
                 'code' => 'DOLG',
@@ -79,6 +93,16 @@ class DatabaseSeeder extends Seeder
                 'head_of_directorate' => 'Capt. S. A. Danbaba',
                 'email' => 'operations@ncaa.gov.ng',
                 'description' => 'AOC certification, flight crew licensing, recurrent simulator audits, and aerodrome operational compliance.',
+                'departments' => [
+                    [
+                        'code' => 'DOLG-FLT',
+                        'name' => 'Flight Operations Department',
+                        'head_of_department' => 'Capt. T. Johnson',
+                        'units' => [
+                            ['code' => 'FLT-RAMP', 'name' => 'Ramp Safety & Surveillance Unit', 'head_of_unit' => 'Mr. Ibrahim Yakubu'],
+                        ],
+                    ],
+                ],
             ],
             [
                 'code' => 'DATR',
@@ -86,6 +110,7 @@ class DatabaseSeeder extends Seeder
                 'head_of_directorate' => 'Mrs. Nneka Eze',
                 'email' => 'datr@ncaa.gov.ng',
                 'description' => 'Economic oversight of airlines, bilateral air service agreements (BASA), and commercial consumer protection.',
+                'departments' => [],
             ],
             [
                 'code' => 'DAAS',
@@ -93,21 +118,138 @@ class DatabaseSeeder extends Seeder
                 'head_of_directorate' => 'Engr. T. O. Okon',
                 'email' => 'aerodrome@ncaa.gov.ng',
                 'description' => 'Airport safety certification, runway lighting, fire fighting category compliance, and navigational aids.',
+                'departments' => [],
             ],
         ];
 
-        $dirModels = [];
-        foreach ($directorates as $dir) {
-            $dirModels[$dir['code']] = Directorate::firstOrCreate(['code' => $dir['code']], $dir);
+        $createdDirectorates = [];
+        $createdDepartments = [];
+        $createdUnits = [];
+
+        foreach ($directoratesData as $dirData) {
+            $depts = $dirData['departments'] ?? [];
+            unset($dirData['departments']);
+
+            $directorate = Directorate::firstOrCreate(['code' => $dirData['code']], $dirData);
+            $createdDirectorates[$directorate->code] = $directorate;
+
+            foreach ($depts as $deptData) {
+                $units = $deptData['units'] ?? [];
+                unset($deptData['units']);
+                $deptData['directorate_id'] = $directorate->id;
+
+                $department = Department::firstOrCreate(['code' => $deptData['code']], $deptData);
+                $createdDepartments[$department->code] = $department;
+
+                foreach ($units as $unitData) {
+                    $unitData['department_id'] = $department->id;
+                    $unit = Unit::firstOrCreate(['code' => $unitData['code']], $unitData);
+                    $createdUnits[$unit->code] = $unit;
+                }
+            }
         }
 
-        // 3. Create Standard NCAA / ICAO Audit Checklists
+        // 3. Exactly One Demo User Per Role (password: "password")
+        $usersData = [
+            [
+                'role' => 'system_admin',
+                'name' => 'Capt. Musa Bello',
+                'email' => 'admin@ncaa.gov.ng',
+                'staff_id' => 'NCAA/ADM/001',
+                'phone' => '+234 803 123 4567',
+                'directorate_code' => 'DSD',
+                'department_code' => 'DSD-QA',
+                'unit_code' => 'QA-AUD',
+            ],
+            [
+                'role' => 'lead_auditor',
+                'name' => 'Engr. Folake Adeleke',
+                'email' => 'lead_auditor@ncaa.gov.ng',
+                'staff_id' => 'NCAA/QA/042',
+                'phone' => '+234 802 987 6543',
+                'directorate_code' => 'DSD',
+                'department_code' => 'DSD-QA',
+                'unit_code' => 'QA-AUD',
+            ],
+            [
+                'role' => 'field_auditor',
+                'name' => 'Mr. Chidi Obi',
+                'email' => 'auditor@ncaa.gov.ng',
+                'staff_id' => 'NCAA/QA/077',
+                'phone' => '+234 803 765 4321',
+                'directorate_code' => 'DSD',
+                'department_code' => 'DSD-QA',
+                'unit_code' => 'QA-SURV',
+            ],
+            [
+                'role' => 'reviewer',
+                'name' => 'Mrs. Halima Aliyu',
+                'email' => 'reviewer@ncaa.gov.ng',
+                'staff_id' => 'NCAA/REV/015',
+                'phone' => '+234 809 333 4455',
+                'directorate_code' => 'DSD',
+                'department_code' => 'DSD-QA',
+                'unit_code' => 'QA-AUD',
+            ],
+            [
+                'role' => 'head_of_audit',
+                'name' => 'Dr. Emmanuel Okafor',
+                'email' => 'head_of_audit@ncaa.gov.ng',
+                'staff_id' => 'NCAA/DSD/005',
+                'phone' => '+234 802 111 2233',
+                'directorate_code' => 'DSD',
+                'department_code' => 'DSD-QA',
+                'unit_code' => 'QA-AUD',
+            ],
+            [
+                'role' => 'director',
+                'name' => 'Capt. S. A. Danbaba',
+                'email' => 'director@ncaa.gov.ng',
+                'staff_id' => 'NCAA/DIR/002',
+                'phone' => '+234 805 777 8899',
+                'directorate_code' => 'DOLG',
+                'department_code' => 'DOLG-FLT',
+                'unit_code' => 'FLT-RAMP',
+            ],
+            [
+                'role' => 'auditee',
+                'name' => 'Mr. Ibrahim Yakubu',
+                'email' => 'auditee@ncaa.gov.ng',
+                'staff_id' => 'NCAA/DAWS/109',
+                'phone' => '+234 805 555 1122',
+                'directorate_code' => 'DAWS',
+                'department_code' => 'DAWS-AIR',
+                'unit_code' => 'AIR-AMO',
+            ],
+        ];
+
+        $seededUsers = [];
+        foreach ($usersData as $u) {
+            $user = User::updateOrCreate(
+                ['email' => $u['email']],
+                [
+                    'name' => $u['name'],
+                    'password' => Hash::make('password'),
+                    'role' => $u['role'],
+                    'staff_id' => $u['staff_id'],
+                    'phone' => $u['phone'],
+                    'directorate_id' => $createdDirectorates[$u['directorate_code']]->id ?? null,
+                    'department_id' => $createdDepartments[$u['department_code']]->id ?? null,
+                    'unit_id' => $createdUnits[$u['unit_code']]->id ?? null,
+                ]
+            );
+
+            $user->syncRoles([$u['role']]);
+            $seededUsers[$u['role']] = $user;
+        }
+
+        // 4. Standard Checklists & Items
         $chkGround = Checklist::firstOrCreate(
             ['code' => 'CHK-GRD-2026'],
             [
                 'title' => 'Ramp Safety & Ground Handling Quality Surveillance',
                 'category' => 'ground_ops',
-                'description' => 'Comprehensive apron and ramp inspection protocol based on Nig.CARs Part 8.4 and ICAO Doc 10121 (Ground Handling Manual).',
+                'description' => 'Comprehensive apron and ramp inspection protocol based on Nig.CARs Part 8.4 and ICAO Doc 10121.',
                 'is_active' => true,
             ]
         );
@@ -144,7 +286,7 @@ class DatabaseSeeder extends Seeder
             [
                 'item_code' => 'GRD-05',
                 'requirement' => 'Baggage make-up area security access control and 100% hold-baggage reconciliation before cargo door lock.',
-                'guidance' => 'Inspect access biometric turnstile and audit sample manifest against BRS (Baggage Reconciliation System).',
+                'guidance' => 'Inspect access biometric turnstile and audit sample manifest against BRS.',
                 'regulatory_reference' => 'Nig.CARs Part 17 AVSEC & ICAO Annex 17',
                 'order_index' => 5,
             ],
@@ -157,69 +299,25 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        $chkAir = Checklist::firstOrCreate(
-            ['code' => 'CHK-AIR-2026'],
-            [
-                'title' => 'Aircraft Maintenance & Continuing Airworthiness Audit',
-                'category' => 'airworthiness',
-                'description' => 'Hangar, Technical Logbook, and Maintenance Organization compliance against Nig.CARs Part 5 & 6.',
-                'is_active' => true,
-            ]
-        );
-
-        $airItems = [
-            [
-                'item_code' => 'AIR-01',
-                'requirement' => 'Aircraft Technical Logbook (Tech Log) must contain accurate flight hours, cycles, defect rectifications, and licensed engineer signatures.',
-                'guidance' => 'Audit past 30 days of Tech Log sheets for MEL item sign-offs and Deferred Defect records.',
-                'regulatory_reference' => 'Nig.CARs Part 5.4.1',
-                'order_index' => 1,
-            ],
-            [
-                'item_code' => 'AIR-02',
-                'requirement' => 'Mandatory Tool Control & Calibration register must show current validity for all torque wrenches, pitot-static testers, and avionics test benches.',
-                'guidance' => 'Randomly sample 5 calibrated tools in the avionics bay and verify ISO 17025 calibration stamps.',
-                'regulatory_reference' => 'Nig.CARs Part 6.5.2',
-                'order_index' => 2,
-            ],
-            [
-                'item_code' => 'AIR-03',
-                'requirement' => 'Chemical and component storage in temperature-controlled bonded stores with valid Airworthiness Release Certificates (Form One / 8130-3).',
-                'guidance' => 'Inspect shelf-life expirations for aerospace sealants and composite adhesives.',
-                'regulatory_reference' => 'ICAO Annex 8 Airworthiness & Nig.CARs Part 6',
-                'order_index' => 3,
-            ],
-        ];
-
-        foreach ($airItems as $item) {
-            ChecklistItem::firstOrCreate(
-                ['checklist_id' => $chkAir->id, 'item_code' => $item['item_code']],
-                $item
-            );
-        }
-
-        // 4. Create Realistic NCAA Audit Engagements
+        // 5. Audit Engagements
         $audit1 = Audit::firstOrCreate(
             ['reference_number' => 'AUD-2026-DSD-001'],
             [
                 'title' => 'Ramp Safety & Fuel Quality Surveillance Audit - Nnamdi Azikiwe Int\'l Airport',
                 'type' => 'surveillance',
-                'directorate_id' => $dirModels['DOLG']->id,
+                'directorate_id' => $createdDirectorates['DOLG']->id,
                 'checklist_id' => $chkGround->id,
-                'lead_auditor_id' => $auditor1->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
                 'location' => 'Abuja Airport (DNAA / ABV)',
                 'start_date' => now()->subDays(2),
-                'end_date' => null,
                 'status' => 'in_progress',
                 'scope' => 'Concourse B Apron, Hydrant Fueling Pit 4, Baggage Make-up Area, and GSE Maintenance Workshop.',
                 'executive_summary' => 'Routine surprise surveillance conducted jointly by NCAA DSD and Flight Safety inspectors.',
-                'ai_executive_summary' => "### Executive Audit Summary (NCAA Directorate of Special Duties)\n**Engagement:** Ramp Safety & Fuel Quality Surveillance Audit - Abuja\n**Audited Directorate/Station:** Directorate of Operations, Licensing and Training (DOLG)\n**Overall Quality Compliance Index:** 80%\n\n#### 1. Strategic Compliance Assessment\nThe DSD Internal Audit team concluded surveillance inspection at Abuja International Airport. Overall adherence meets basic NCAA criteria, though ground equipment maintenance gaps require swift corrective actions.\n\n#### 2. Summary of Findings\n- **Critical Findings:** 0\n- **Major Operational Findings:** 1 (GSE uncalibrated fuel hydrant static line)\n- **Minor Discrepancies:** 1 (FOD bin documentation delay)\n\n#### 3. Risk Horizon & Auditor Conclusion\nRemediation has been formally initiated. All ground handling partners are notified to comply within 21 calendar days.",
+                'ai_executive_summary' => "### Executive Audit Summary (NCAA Directorate of Special Duties)\n**Engagement:** Ramp Safety & Fuel Quality Surveillance Audit - Abuja\n**Audited Directorate/Station:** Directorate of Operations, Licensing and Training (DOLG)\n**Overall Quality Compliance Index:** 80%\n\n#### 1. Strategic Compliance Assessment\nThe DSD Internal Audit team concluded surveillance inspection at Abuja International Airport. Overall adherence meets basic NCAA criteria.\n\n#### 2. Summary of Findings\n- **Major Operational Findings:** 1 (GSE uncalibrated fuel hydrant static line)\n- **Minor Discrepancies:** 1 (FOD bin documentation delay)",
             ]
         );
 
-        // Pre-fill responses for audit 1
-        $groundItemModels = ChecklistItem::where('checklist_id', $chkGround->id)->get();
-        foreach ($groundItemModels as $it) {
+        foreach (ChecklistItem::where('checklist_id', $chkGround->id)->get() as $it) {
             $status = ($it->item_code === 'GRD-04') ? 'non_compliant' : 'compliant';
             $notes = ($it->item_code === 'GRD-04') ? 'Static bonding cable showed physical outer insulation wear and missing continuity tag.' : 'Verified compliant during physical ramp inspection.';
 
@@ -228,12 +326,11 @@ class DatabaseSeeder extends Seeder
                 [
                     'status' => $status,
                     'notes' => $notes,
-                    'auditor_id' => $auditor1->id,
+                    'auditor_id' => $seededUsers['field_auditor']->id,
                 ]
             );
         }
 
-        // Create Finding for the non-conformance
         $fnd1 = Finding::firstOrCreate(
             ['finding_number' => 'FND-2026-DSD-01'],
             [
@@ -264,41 +361,6 @@ class DatabaseSeeder extends Seeder
                 'responsible_person' => 'Station Fueling Ops Lead (Abuja Station)',
                 'target_completion_date' => now()->addDays(3),
                 'status' => 'pending_approval',
-            ]
-        );
-
-        // Audit 2: Scheduled
-        Audit::firstOrCreate(
-            ['reference_number' => 'AUD-2026-DSD-002'],
-            [
-                'title' => 'Hangar Quality & Tool Calibration Audit - Murtala Muhammed Airport',
-                'type' => 'internal_audit',
-                'directorate_id' => $dirModels['DAWS']->id,
-                'checklist_id' => $chkAir->id,
-                'lead_auditor_id' => $admin->id,
-                'location' => 'Lagos Airport (DNMM / LOS)',
-                'start_date' => now()->addDays(4),
-                'status' => 'scheduled',
-                'scope' => 'Approved Maintenance Organization (AMO) facilities, tool stores, and Tech Log archive at Ikeja Hangar 2.',
-            ]
-        );
-
-        // Audit 3: Completed
-        Audit::firstOrCreate(
-            ['reference_number' => 'AUD-2026-DSD-003'],
-            [
-                'title' => 'VIP Flight Support & Special Operations Compliance Review',
-                'type' => 'special_inspection',
-                'directorate_id' => $dirModels['DSD']->id,
-                'checklist_id' => $chkGround->id,
-                'lead_auditor_id' => $auditor1->id,
-                'location' => 'Presidential Wing, Nnamdi Azikiwe Airport Abuja',
-                'start_date' => now()->subDays(10),
-                'end_date' => now()->subDays(8),
-                'status' => 'completed',
-                'scope' => 'Specialized flight handling, security clearances, and ramp escort compliance.',
-                'executive_summary' => '100% compliance verified across all security screening and ramp coordination checkpoints.',
-                'ai_executive_summary' => "### Executive Audit Summary (NCAA Directorate of Special Duties)\n**Engagement:** VIP Flight Support & Special Operations Compliance Review\n**Audited Directorate/Station:** Directorate of Special Duties (DSD)\n**Overall Quality Compliance Index:** 100%\n\n#### 1. Strategic Compliance Assessment\nAll evaluated checkpoints conformed fully with presidential flight security directives and Nig.CARs standards. No deficiencies recorded.",
             ]
         );
     }

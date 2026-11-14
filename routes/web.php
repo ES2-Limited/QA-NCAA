@@ -5,14 +5,21 @@ use App\Livewire\AuditorDashboard;
 use App\Livewire\FindingReport;
 use Illuminate\Support\Facades\Route;
 
-// Redirect root to auditor dashboard
+// Redirect root to dashboard or auditor
 Route::get('/', function () {
-    return redirect()->route('auditor.dashboard');
+    return redirect()->route('dashboard');
 });
 
-// Mobile-First Field Auditor Routes
-Route::prefix('auditor')->name('auditor.')->group(function () {
-    Route::get('/', AuditorDashboard::class)->name('dashboard');
-    Route::get('/audit/{audit}', AuditExecution::class)->name('execute');
-    Route::get('/audit/{audit}/finding', FindingReport::class)->name('report-finding');
+Route::middleware(['auth'])->group(function () {
+    Route::view('dashboard', 'dashboard')->name('dashboard');
+
+    // Field Auditor Routes protected by auth
+    Route::prefix('auditor')->name('auditor.')->group(function () {
+        Route::get('/', AuditorDashboard::class)->name('dashboard');
+        Route::get('/audit/{audit}', AuditExecution::class)->name('execute');
+        Route::get('/audit/{audit}/finding', FindingReport::class)->name('report-finding');
+    });
 });
+
+require __DIR__.'/settings.php';
+require __DIR__.'/admin.php';

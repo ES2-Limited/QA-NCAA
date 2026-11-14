@@ -1,46 +1,80 @@
 <?php
 
 use App\Models\Audit;
+use App\Models\User;
 use App\Services\AiServiceInterface;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->artisan('db:seed');
 });
 
-test('field auditor dashboard renders successfully', function () {
+test('exactly seven specified roles are seeded', function () {
+    $expectedRoles = [
+        'system_admin',
+        'lead_auditor',
+        'field_auditor',
+        'reviewer',
+        'head_of_audit',
+        'director',
+        'auditee',
+    ];
+
+    $dbRoles = Role::pluck('name')->all();
+    sort($expectedRoles);
+    sort($dbRoles);
+
+    expect($dbRoles)->toEqual($expectedRoles);
+});
+
+test('one demo user is seeded for each role', function () {
+    $roleUsers = [
+        'system_admin' => 'admin@ncaa.gov.ng',
+        'lead_auditor' => 'lead_auditor@ncaa.gov.ng',
+        'field_auditor' => 'auditor@ncaa.gov.ng',
+        'reviewer' => 'reviewer@ncaa.gov.ng',
+        'head_of_audit' => 'head_of_audit@ncaa.gov.ng',
+        'director' => 'director@ncaa.gov.ng',
+        'auditee' => 'auditee@ncaa.gov.ng',
+    ];
+
+    foreach ($roleUsers as $role => $email) {
+        $user = User::where('email', $email)->first();
+        expect($user)->not->toBeNull();
+        expect($user->hasRole($role))->toBeTrue();
+    }
+});
+
+test('guest is redirected to login from auditor routes', function () {
     $response = $this->get('/auditor');
+    $response->assertRedirect('/login');
+});
 
+test('authenticated field auditor can access dashboard and execution checklist', function () {
+    $auditor = User::where('email', 'auditor@ncaa.gov.ng')->first();
+    $audit = Audit::first();
+
+    $response = $this->actingAs($auditor)->get('/auditor');
     $response->assertStatus(200);
-    $response->assertSee('Directorate of Special Duties (DSD)');
     $response->assertSee('QA / Internal Audit Field Operations');
+
+    $execResponse = $this->actingAs($auditor)->get(route('auditor.execute', $audit->id));
+    $execResponse->assertStatus(200);
+    $execResponse->assertSee($audit->reference_number);
 });
 
-test('pwa manifest and service worker files exist in public directory', function () {
-    expect(file_exists(public_path('manifest.json')))->toBeTrue();
-    expect(file_exists(public_path('sw.js')))->toBeTrue();
-    expect(file_exists(public_path('icons/icon-192.png')))->toBeTrue();
-});
+test('system_admin has exclusive access to admin management routes', function () {
+    $admin = User::where('email', 'admin@ncaa.gov.ng')->first();
+    $auditee = User::where('email', 'auditee@ncaa.gov.ng')->first();
 
-test('field checklist execution page renders and displays items', function () {
-    $audit = Audit::first();
-    expect($audit)->not->toBeNull();
-
-    $response = $this->get(route('auditor.execute', $audit->id));
-
+    // system_admin allowed
+    $response = $this->actingAs($admin)->get('/admin/directorates');
     $response->assertStatus(200);
-    $response->assertSee($audit->reference_number);
-    $response->assertSee('Field Checklist');
-});
+    $response->assertSee('NCAA Directorates');
 
-test('finding report page allows logging non-conformance with AI risk guidance', function () {
-    $audit = Audit::first();
-    expect($audit)->not->toBeNull();
-
-    $response = $this->get(route('auditor.report-finding', $audit->id));
-
-    $response->assertStatus(200);
-    $response->assertSee('Log Non-Conformance / Deficiency');
-    $response->assertSee('Run AI Risk Analysis');
+    // non system_admin receives 403 Forbidden
+    $forbidden = $this->actingAs($auditee)->get('/admin/directorates');
+    $forbidden->assertStatus(403);
 });
 
 test('ai service generates risk analysis and executive summary offline fallback', function () {

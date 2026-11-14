@@ -15,7 +15,29 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    @hasanyrole('system_admin|lead_auditor|field_auditor|reviewer|head_of_audit|director|auditee')
+                        <flux:sidebar.item icon="clipboard-document-check" :href="route('auditor.dashboard')" :current="request()->routeIs('auditor.*')">
+                            {{ __('QA / Internal Audit') }}
+                        </flux:sidebar.item>
+                    @endhasanyrole
                 </flux:sidebar.group>
+
+                @hasrole('system_admin')
+                    <flux:sidebar.group :heading="__('Administration')" class="grid">
+                        <flux:sidebar.item icon="building-office-2" :href="route('admin.directorates')" :current="request()->routeIs('admin.directorates')" wire:navigate>
+                            {{ __('Directorates') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="building-office" :href="route('admin.departments')" :current="request()->routeIs('admin.departments')" wire:navigate>
+                            {{ __('Departments') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="squares-2x2" :href="route('admin.units')" :current="request()->routeIs('admin.units')" wire:navigate>
+                            {{ __('Units') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
+                            {{ __('User Accounts') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endhasrole
             </flux:sidebar.nav>
 
             <flux:spacer />
