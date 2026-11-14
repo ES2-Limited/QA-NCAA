@@ -4,17 +4,40 @@ use App\Models\Finding;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 
 new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
     use WithPagination;
 
+    #[Url]
     public string $statusFilter = '';
+
+    #[Url]
+    public string $directorateFilter = '';
+
+    #[Url]
+    public string $overdueFilter = '';
+
+    public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDirectorateFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOverdueFilter()
+    {
+        $this->resetPage();
+    }
 
     public function with()
     {
         $user = auth()->user();
 
-        $query = Finding::with(['audit.directorate', 'unit', 'cap', 'raisedBy'])
+        $query = Finding::with(['audit.directorate', 'unit.department', 'cap', 'raisedBy'])
             ->latest('id');
 
         // Role scoping: role auditee sees NCRs for their assigned unit
@@ -24,6 +47,22 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
 
         if (! empty($this->statusFilter)) {
             $query->where('status', $this->statusFilter);
+        }
+
+        if (! empty($this->directorateFilter)) {
+            $dirId = $this->directorateFilter;
+            $query->where(function ($q) use ($dirId) {
+                $q->whereHas('audit', fn ($aq) => $aq->where('directorate_id', $dirId))
+                  ->orWhereHas('unit.department', fn ($dq) => $dq->where('directorate_id', $dirId));
+            });
+        }
+
+        if ($this->overdueFilter === '1') {
+            $query->where('status', 'open')
+                ->where(function ($q) {
+                    $q->where('cap_due_at', '<', now())
+                      ->orWhere('due_date', '<', now());
+                });
         }
 
         return [

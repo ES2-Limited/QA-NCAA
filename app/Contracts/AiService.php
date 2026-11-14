@@ -22,4 +22,9 @@ interface AiService
      * Summarise audit findings and context for leadership.
      */
     public function summariseAudit(string $auditContext): string;
+
+    /**
+     * Generate an executive QA & internal audit management report.
+     */
+    public function generateReport(string $context): string;
 }

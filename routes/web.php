@@ -4,6 +4,7 @@ use App\Models\Audit;
 use App\Models\Certificate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Mechanisms\HandleRouting\LivewirePageController;
 
 // Root / Home route: landing redirection based on role
 Route::get('/', function () {
@@ -17,9 +18,6 @@ Route::get('/', function () {
         }
         if ($user->hasRole('auditee')) {
             return redirect()->route('ncrs.index');
-        }
-        if ($user->hasRole('head_of_audit') || $user->hasRole('director')) {
-            return redirect()->route('approvals.index');
         }
     }
 
@@ -38,11 +36,12 @@ Route::middleware(['auth'])->group(function () {
         if ($user->hasRole('auditee')) {
             return redirect()->route('ncrs.index');
         }
-        if ($user->hasRole('head_of_audit') || $user->hasRole('director')) {
-            return redirect()->route('approvals.index');
-        }
 
-        return view('dashboard');
+        // system_admin, lead_auditor, head_of_audit, director → Livewire management dashboard
+        return app(LivewirePageController::class)
+            ->__invoke(tap(request()->route(), fn ($r) => $r->setAction(
+                array_merge($r->getAction(), ['livewire_component' => 'pages::dashboard'])
+            )));
     })->name('dashboard');
 
     // Certificate Download

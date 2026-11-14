@@ -163,6 +163,7 @@ class DatabaseSeeder extends Seeder
                 'role' => 'system_admin',
                 'name' => 'Capt. Musa Bello',
                 'email' => 'admin@ncaa.gov.ng',
+                'additional_emails' => ['system_admin@ncaa.gov.ng'],
                 'staff_id' => 'NCAA/ADM/001',
                 'phone' => '+234 803 123 4567',
                 'directorate_code' => 'DSD',
@@ -183,6 +184,7 @@ class DatabaseSeeder extends Seeder
                 'role' => 'field_auditor',
                 'name' => 'Mr. Chidi Obi',
                 'email' => 'auditor@ncaa.gov.ng',
+                'additional_emails' => ['field_auditor@ncaa.gov.ng'],
                 'staff_id' => 'NCAA/QA/077',
                 'phone' => '+234 803 765 4321',
                 'directorate_code' => 'DSD',
@@ -249,6 +251,25 @@ class DatabaseSeeder extends Seeder
 
             $user->syncRoles([$u['role']]);
             $seededUsers[$u['role']] = $user;
+
+            if (! empty($u['additional_emails'])) {
+                foreach ($u['additional_emails'] as $aliasEmail) {
+                    $aliasUser = User::updateOrCreate(
+                        ['email' => $aliasEmail],
+                        [
+                            'name' => $u['name'],
+                            'password' => Hash::make('password'),
+                            'role' => $u['role'],
+                            'staff_id' => $u['staff_id'],
+                            'phone' => $u['phone'],
+                            'directorate_id' => $createdDirectorates[$u['directorate_code']]->id ?? null,
+                            'department_id' => $createdDepartments[$u['department_code']]->id ?? null,
+                            'unit_id' => $createdUnits[$u['unit_code']]->id ?? null,
+                        ]
+                    );
+                    $aliasUser->syncRoles([$u['role']]);
+                }
+            }
         }
 
         // 4. Document Library Sample Files & Seed Records (Seed before processes so documents can be linked)
@@ -789,6 +810,445 @@ class DatabaseSeeder extends Seeder
                 'raised_by' => $seededUsers['reviewer']->id,
                 'cap_due_at' => now()->subHours(24), // 24 hours overdue
                 'due_date' => now()->subDays(1)->toDateString(),
+                'status' => 'open',
+            ]
+        );
+
+        // 8. Prompt 8 Requirements: Additional Processes, Audits across 6 months, NCRs & Certificates
+        // Processes 3 - 6 across DSD, DAWS, DOLG (Total >= 6 processes across 3 directorates)
+        $procDg = Process::firstOrCreate(
+            ['name' => 'Dangerous Goods Ground Handling Audit'],
+            [
+                'description' => 'Surveillance of cargo terminal hazmat storage, segregation, and acceptance documentation under Nig.CARs Part 9.',
+                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'department_id' => $createdDepartments['DOLG-FLT']->id ?? null,
+                'unit_id' => $createdUnits['FLT-RAMP']->id ?? null,
+                'type' => 'routine',
+                'frequency' => 'quarterly',
+                'next_due_at' => now()->addDays(20),
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'status' => 'active',
+            ]
+        );
+
+        $procAvionics = Process::firstOrCreate(
+            ['name' => 'Avionics Workshop Calibration Review'],
+            [
+                'description' => 'Precision measurement tool verification, laboratory traceability, and environmental controls in component shops.',
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'department_id' => $createdDepartments['DAWS-AIR']->id ?? null,
+                'unit_id' => $createdUnits['AIR-AMO']->id ?? null,
+                'type' => 'routine',
+                'frequency' => 'bi-annual',
+                'next_due_at' => now()->addDays(14),
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'status' => 'active',
+            ]
+        );
+
+        $procVip = Process::firstOrCreate(
+            ['name' => 'VIP Flight Operation Security & Quality Audit'],
+            [
+                'description' => 'Executive presidential fleet passenger screening, manifest handling, and ramp escort surveillance protocols.',
+                'directorate_id' => $createdDirectorates['DSD']->id,
+                'department_id' => $createdDepartments['DSD-VIP']->id ?? null,
+                'unit_id' => $createdUnits['VIP-OPS']->id ?? null,
+                'type' => 'unplanned',
+                'frequency' => null,
+                'next_due_at' => null,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'status' => 'active',
+            ]
+        );
+
+        $procQms = Process::firstOrCreate(
+            ['name' => 'Quality Management System Compliance Review'],
+            [
+                'description' => 'Internal evaluation of DSD audit procedures, inspector competence, closing records, and statutory ICAO USOAP readiness.',
+                'directorate_id' => $createdDirectorates['DSD']->id,
+                'department_id' => $createdDepartments['DSD-QA']->id ?? null,
+                'unit_id' => $createdUnits['QA-AUD']->id ?? null,
+                'type' => 'routine',
+                'frequency' => 'annual',
+                'next_due_at' => now()->addDays(5),
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'status' => 'active',
+            ]
+        );
+
+        // Additional Audits across the last 6 months covering all statuses (Total >= 10 audits)
+        // Audit 5: 5 months ago (director_approved, DAWS, completed with certificate)
+        $audit5Date = now()->subMonths(5)->startOfMonth()->addDays(10);
+        $audit5 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-005'],
+            [
+                'title' => 'Avionics Workshop Calibration Review — Mid-Year Audit',
+                'type' => 'routine',
+                'process_id' => $procAvionics->id,
+                'checklist_id' => $procAvionics->id,
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Lagos MMA Component Shop',
+                'start_date' => $audit5Date,
+                'end_date' => $audit5Date->copy()->addDays(3),
+                'scheduled_for' => $audit5Date,
+                'status' => 'director_approved',
+                'created_at' => $audit5Date,
+                'updated_at' => $audit5Date->copy()->addDays(5),
+            ]
+        );
+        AuditApproval::firstOrCreate(['audit_id' => $audit5->id, 'action' => 'director_approved'], [
+            'user_id' => $seededUsers['director']->id,
+            'role' => 'director',
+            'comment' => 'Certified and approved.',
+            'created_at' => $audit5Date->copy()->addDays(5),
+        ]);
+        app(CertificateGenerator::class)->generate($audit5, $seededUsers['director']->id);
+
+        // Audit 6: 4 months ago (director_approved, DOLG, completed with certificate)
+        $audit6Date = now()->subMonths(4)->startOfMonth()->addDays(12);
+        $audit6 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-006'],
+            [
+                'title' => 'Dangerous Goods Ground Handling — Kano Airport Surveillance',
+                'type' => 'routine',
+                'process_id' => $procDg->id,
+                'checklist_id' => $procDg->id,
+                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Mallam Aminu Kano Airport (DNKN / KAN)',
+                'start_date' => $audit6Date,
+                'end_date' => $audit6Date->copy()->addDays(2),
+                'scheduled_for' => $audit6Date,
+                'status' => 'director_approved',
+                'created_at' => $audit6Date,
+                'updated_at' => $audit6Date->copy()->addDays(4),
+            ]
+        );
+        AuditApproval::firstOrCreate(['audit_id' => $audit6->id, 'action' => 'director_approved'], [
+            'user_id' => $seededUsers['director']->id,
+            'role' => 'director',
+            'comment' => 'Certified and approved.',
+            'created_at' => $audit6Date->copy()->addDays(4),
+        ]);
+        app(CertificateGenerator::class)->generate($audit6, $seededUsers['director']->id);
+
+        // Audit 7: 3 months ago (director_approved, DSD)
+        $audit7Date = now()->subMonths(3)->startOfMonth()->addDays(8);
+        $audit7 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-007'],
+            [
+                'title' => 'VIP Flight Operation Security Audit — Abuja Presidential Wing',
+                'type' => 'unplanned',
+                'process_id' => $procVip->id,
+                'checklist_id' => $procVip->id,
+                'directorate_id' => $createdDirectorates['DSD']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Presidential Air Fleet Wing, Abuja',
+                'start_date' => $audit7Date,
+                'end_date' => $audit7Date->copy()->addDays(1),
+                'scheduled_for' => $audit7Date,
+                'status' => 'director_approved',
+                'created_at' => $audit7Date,
+                'updated_at' => $audit7Date->copy()->addDays(3),
+            ]
+        );
+        AuditApproval::firstOrCreate(['audit_id' => $audit7->id, 'action' => 'director_approved'], [
+            'user_id' => $seededUsers['director']->id,
+            'role' => 'director',
+            'comment' => 'Security protocol verified compliant.',
+            'created_at' => $audit7Date->copy()->addDays(3),
+        ]);
+
+        // Audit 8: 2 months ago (director_approved, DAWS)
+        $audit8Date = now()->subMonths(2)->startOfMonth()->addDays(15);
+        $audit8 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-008'],
+            [
+                'title' => 'AMO Quality Management Follow-up Inspection',
+                'type' => 'routine',
+                'process_id' => $procAmo->id,
+                'checklist_id' => $procAmo->id,
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Port Harcourt Hangar',
+                'start_date' => $audit8Date,
+                'end_date' => $audit8Date->copy()->addDays(2),
+                'scheduled_for' => $audit8Date,
+                'status' => 'director_approved',
+                'created_at' => $audit8Date,
+                'updated_at' => $audit8Date->copy()->addDays(4),
+            ]
+        );
+        AuditApproval::firstOrCreate(['audit_id' => $audit8->id, 'action' => 'director_approved'], [
+            'user_id' => $seededUsers['director']->id,
+            'role' => 'director',
+            'comment' => 'Certified.',
+            'created_at' => $audit8Date->copy()->addDays(4),
+        ]);
+
+        // Audit 9: 1 month ago (director_approved, DOLG)
+        $audit9Date = now()->subMonths(1)->startOfMonth()->addDays(18);
+        $audit9 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-009'],
+            [
+                'title' => 'Dangerous Goods Acceptance & Cargo Staging Surveillance',
+                'type' => 'routine',
+                'process_id' => $procDg->id,
+                'checklist_id' => $procDg->id,
+                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Lagos Cargo Terminal 2',
+                'start_date' => $audit9Date,
+                'end_date' => $audit9Date->copy()->addDays(3),
+                'scheduled_for' => $audit9Date,
+                'status' => 'director_approved',
+                'created_at' => $audit9Date,
+                'updated_at' => $audit9Date->copy()->addDays(5),
+            ]
+        );
+        AuditApproval::firstOrCreate(['audit_id' => $audit9->id, 'action' => 'director_approved'], [
+            'user_id' => $seededUsers['director']->id,
+            'role' => 'director',
+            'comment' => 'Approved.',
+            'created_at' => $audit9Date->copy()->addDays(5),
+        ]);
+
+        // Audit 10: This month (head_approved, awaiting director approval)
+        $audit10Date = now()->startOfMonth()->addDays(2);
+        $audit10 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-010'],
+            [
+                'title' => 'Internal QMS Procedure Adherence & Records Audit',
+                'type' => 'routine',
+                'process_id' => $procQms->id,
+                'checklist_id' => $procQms->id,
+                'directorate_id' => $createdDirectorates['DSD']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'NCAA Headquarters, Abuja',
+                'start_date' => $audit10Date,
+                'scheduled_for' => $audit10Date,
+                'status' => 'head_approved',
+                'created_at' => $audit10Date,
+                'updated_at' => now(),
+            ]
+        );
+        AuditApproval::firstOrCreate(['audit_id' => $audit10->id, 'action' => 'head_approved'], [
+            'user_id' => $seededUsers['head_of_audit']->id,
+            'role' => 'head_of_audit',
+            'comment' => 'Recommended for Director certification.',
+            'created_at' => now()->subHours(12),
+        ]);
+
+        // Audit 11: returned status (covering all lifecycle statuses)
+        $audit11 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-011'],
+            [
+                'title' => 'Ramp Turnaround Fuel Quality Spot Check — Returned for Clarity',
+                'type' => 'unplanned',
+                'process_id' => $procRamp->id,
+                'checklist_id' => $procRamp->id,
+                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Port Harcourt Airport',
+                'start_date' => now()->subDays(6),
+                'scheduled_for' => now()->subDays(6),
+                'status' => 'returned',
+                'created_at' => now()->subDays(6),
+                'updated_at' => now()->subDays(1),
+            ]
+        );
+
+        // Audit 12: Upcoming routine audit in next 18 days (scheduled, routine, within 30 days)
+        $audit12 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-012'],
+            [
+                'title' => 'Avionics Secondary Inspection & Calibrated Store Audit',
+                'type' => 'routine',
+                'process_id' => $procAvionics->id,
+                'checklist_id' => $procAvionics->id,
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Lagos Maintenance Facility',
+                'start_date' => now()->addDays(18),
+                'scheduled_for' => now()->addDays(18),
+                'status' => 'scheduled',
+                'created_at' => now(),
+            ]
+        );
+
+        // Seed Additional NCRs (Total >= 8 NCRs, >= 2 overdue CAPs)
+        // NCR 3: Overdue CAP #2 (Level 1, cap_due_at past, target_date past)
+        $ncr3 = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0003'],
+            [
+                'audit_id' => $audit1->id,
+                'finding_number' => 'NCR-2026-0003',
+                'title' => 'Uncalibrated Tire Pressure Gauge in Ramp Line Store',
+                'level' => 1,
+                'description' => 'Digital aircraft tire pressure gauge SN# TG-883 found in active flight line toolkit with calibration lapsed 30 days prior.',
+                'condition' => 'Digital aircraft tire pressure gauge SN# TG-883 found in active flight line toolkit with calibration lapsed 30 days prior.',
+                'requirement_ref' => 'Nig.CARs Part 6.5.2',
+                'criteria' => 'Nig.CARs Part 6.5.2',
+                'assigned_unit_id' => $createdUnits['FLT-RAMP']->id ?? null,
+                'raised_by' => $seededUsers['reviewer']->id,
+                'cap_due_at' => now()->subDays(3), // Overdue
+                'due_date' => now()->subDays(3)->toDateString(),
+                'status' => 'open',
+            ]
+        );
+        CorrectiveActionPlan::firstOrCreate(
+            ['ncr_id' => $ncr3->id],
+            [
+                'finding_id' => $ncr3->id,
+                'proposed_action' => 'Gauge quarantine and recall of all shift tire pressure logs.',
+                'root_cause_analysis' => 'Storeman failed to flag expired calibration tag.',
+                'responsible_person' => 'Mr. Ibrahim Yakubu',
+                'target_completion_date' => now()->subDays(2), // Overdue
+                'target_date' => now()->subDays(2),
+                'submitted_by' => $seededUsers['auditee']->id,
+                'status' => 'submitted',
+            ]
+        );
+
+        // NCR 4: Open NCR in DOLG (Level 2)
+        $ncr4 = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0004'],
+            [
+                'audit_id' => $audit4->id,
+                'finding_number' => 'NCR-2026-0004',
+                'title' => 'FOD Storage Bin Cover Broken at Gate 2',
+                'level' => 2,
+                'description' => 'Tarmac FOD bin cover spring hinge broken, allowing loose debris to blow across taxiway Bravo.',
+                'condition' => 'Tarmac FOD bin cover spring hinge broken.',
+                'requirement_ref' => 'Nig.CARs Part 12.045 & ICAO Annex 14',
+                'criteria' => 'Nig.CARs Part 12.045',
+                'assigned_unit_id' => $createdUnits['FLT-RAMP']->id ?? null,
+                'raised_by' => $seededUsers['reviewer']->id,
+                'cap_due_at' => now()->addDays(5),
+                'due_date' => now()->addDays(5)->toDateString(),
+                'status' => 'open',
+            ]
+        );
+
+        // NCR 5: Open NCR in DAWS (Level 2)
+        $ncr5 = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0005'],
+            [
+                'audit_id' => $audit2->id,
+                'finding_number' => 'NCR-2026-0005',
+                'title' => 'Sealant Refrigeration Temperature Sensor Uncertified',
+                'level' => 2,
+                'description' => 'Composite storage freezer temperature display logger calibration certificate expired.',
+                'condition' => 'Composite storage freezer temperature display logger expired.',
+                'requirement_ref' => 'Nig.CARs Part 6.3.4',
+                'criteria' => 'Nig.CARs Part 6.3.4',
+                'assigned_unit_id' => $createdUnits['AIR-AMO']->id ?? null,
+                'raised_by' => $seededUsers['lead_auditor']->id,
+                'cap_due_at' => now()->addDays(10),
+                'due_date' => now()->addDays(10)->toDateString(),
+                'status' => 'open',
+            ]
+        );
+
+        // NCR 6: Closed NCR in DAWS (Audit 5)
+        $ncr6 = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0006'],
+            [
+                'audit_id' => $audit5->id,
+                'finding_number' => 'NCR-2026-0006',
+                'title' => 'AME Logbook Counter-Sign Missing on Avionics Inspection',
+                'level' => 3,
+                'description' => 'Minor paperwork gap: secondary supervisor stamp omitted on routine transponder check.',
+                'condition' => 'Secondary supervisor stamp omitted.',
+                'requirement_ref' => 'Nig.CARs Part 5.4.1',
+                'criteria' => 'Nig.CARs Part 5.4.1',
+                'assigned_unit_id' => $createdUnits['AIR-AMO']->id ?? null,
+                'raised_by' => $seededUsers['reviewer']->id,
+                'cap_due_at' => $audit5Date->copy()->addDays(14),
+                'due_date' => $audit5Date->copy()->addDays(14)->toDateString(),
+                'status' => 'closed',
+            ]
+        );
+        CorrectiveActionPlan::firstOrCreate(
+            ['ncr_id' => $ncr6->id],
+            [
+                'finding_id' => $ncr6->id,
+                'proposed_action' => 'Sign-off added and training circular published.',
+                'root_cause_analysis' => 'Shift handover oversight.',
+                'responsible_person' => 'Engr. Folake Adeleke',
+                'target_completion_date' => $audit5Date->copy()->addDays(10),
+                'target_date' => $audit5Date->copy()->addDays(10),
+                'submitted_by' => $seededUsers['auditee']->id,
+                'status' => 'accepted',
+            ]
+        );
+
+        // NCR 7: Closed NCR in DOLG (Audit 6)
+        $ncr7 = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0007'],
+            [
+                'audit_id' => $audit6->id,
+                'finding_number' => 'NCR-2026-0007',
+                'title' => 'Hazmat Segregation Barrier Placard Missing',
+                'level' => 2,
+                'description' => 'Lithium ion packaging zone lacked class 9 hazard boundary placard in cargo hold 1.',
+                'condition' => 'Lacked class 9 placard.',
+                'requirement_ref' => 'Nig.CARs Part 9.2.1',
+                'criteria' => 'Nig.CARs Part 9.2.1',
+                'assigned_unit_id' => $createdUnits['FLT-RAMP']->id ?? null,
+                'raised_by' => $seededUsers['reviewer']->id,
+                'cap_due_at' => $audit6Date->copy()->addDays(7),
+                'due_date' => $audit6Date->copy()->addDays(7)->toDateString(),
+                'status' => 'closed',
+            ]
+        );
+        CorrectiveActionPlan::firstOrCreate(
+            ['ncr_id' => $ncr7->id],
+            [
+                'finding_id' => $ncr7->id,
+                'proposed_action' => 'New metal hazard signs installed and ramp marshallers briefed.',
+                'root_cause_analysis' => 'Wear and tear from weather.',
+                'responsible_person' => 'Mr. Ibrahim Yakubu',
+                'target_completion_date' => $audit6Date->copy()->addDays(5),
+                'target_date' => $audit6Date->copy()->addDays(5),
+                'submitted_by' => $seededUsers['auditee']->id,
+                'status' => 'accepted',
+            ]
+        );
+
+        // NCR 8: Open NCR in DSD (Audit 10)
+        $ncr8 = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0008'],
+            [
+                'audit_id' => $audit10->id,
+                'finding_number' => 'NCR-2026-0008',
+                'title' => 'Auditor Training Currency Portfolio Missing Human Factors Refresh',
+                'level' => 3,
+                'description' => 'Internal auditor training logbook lacked 24-month Human Factors recurrent certificate.',
+                'condition' => 'Training logbook lacked Human Factors certificate.',
+                'requirement_ref' => 'ICAO Doc 9859 SMS Manual',
+                'criteria' => 'ICAO Doc 9859',
+                'assigned_unit_id' => $createdUnits['QA-AUD']->id ?? null,
+                'raised_by' => $seededUsers['head_of_audit']->id,
+                'cap_due_at' => now()->addDays(14),
+                'due_date' => now()->addDays(14)->toDateString(),
                 'status' => 'open',
             ]
         );

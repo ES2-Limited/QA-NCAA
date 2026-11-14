@@ -193,6 +193,67 @@ class GeminiAiService implements AiService, AiServiceInterface
         }
     }
 
+    /**
+     * Generate an executive QA & internal audit management report using Gemini API.
+     */
+    public function generateReport(string $context): string
+    {
+        $apiKey = config('services.gemini.key');
+        $model = config('services.gemini.model', 'gemini-2.5-flash');
+
+        if (empty($apiKey)) {
+            Log::info('GeminiAiService: GEMINI_API_KEY is not set. Falling back to FakeAiService.');
+
+            return $this->fallback->generateReport($context);
+        }
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+
+        $prompt = 'Write a concise management report for the Director of Special Duties, NCAA: '
+            .'overview, key risks, recurring non-compliances, overdue actions, recommendations. '
+            ."Use short headings and bullet points. Data: {$context}";
+
+        try {
+            $response = Http::withHeaders([
+                'x-goog-api-key' => $apiKey,
+            ])->timeout(60)->post($url, [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt],
+                        ],
+                    ],
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.3,
+                ],
+            ]);
+
+            if (! $response->successful()) {
+                Log::warning('GeminiAiService: generateReport HTTP error: '.$response->status().' - '.$response->body());
+
+                return $this->fallback->generateReport($context);
+            }
+
+            $json = $response->json();
+            $text = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
+
+            if (empty($text)) {
+                Log::warning('GeminiAiService: Empty report response from Gemini.');
+
+                return $this->fallback->generateReport($context);
+            }
+
+            return $text;
+        } catch (Throwable $e) {
+            Log::warning('GeminiAiService: Exception in generateReport: '.$e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return $this->fallback->generateReport($context);
+        }
+    }
+
     public function analyzeFinding(string $title, string $condition, ?string $criteria = null): array
     {
         return $this->fallback->analyzeFinding($title, $condition, $criteria);

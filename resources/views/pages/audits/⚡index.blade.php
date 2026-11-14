@@ -4,12 +4,19 @@ use App\Models\Audit;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 
 new #[Title('Quality Audits Registry')] class extends Component {
     use WithPagination;
 
+    #[Url]
     public string $search = '';
+
+    #[Url]
     public string $statusFilter = '';
+
+    #[Url]
+    public string $timeFilter = '';
 
     public function updatedSearch()
     {
@@ -17,6 +24,11 @@ new #[Title('Quality Audits Registry')] class extends Component {
     }
 
     public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTimeFilter()
     {
         $this->resetPage();
     }
@@ -34,7 +46,19 @@ new #[Title('Quality Audits Registry')] class extends Component {
         }
 
         if (! empty($this->statusFilter)) {
-            $query->where('status', $this->statusFilter);
+            if ($this->statusFilter === 'awaiting_approval') {
+                $query->whereIn('status', ['submitted', 'reviewed', 'head_approved']);
+            } else {
+                $query->where('status', $this->statusFilter);
+            }
+        }
+
+        if ($this->timeFilter === 'this_month') {
+            $query->where(function ($q) {
+                $q->whereBetween('scheduled_for', [now()->startOfMonth(), now()->endOfMonth()])
+                    ->orWhereBetween('start_date', [now()->startOfMonth(), now()->endOfMonth()])
+                    ->orWhereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+            });
         }
 
         return [

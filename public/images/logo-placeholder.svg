@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+    <defs>
+        <linearGradient id="ncaaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#047857"/>
+            <stop offset="100%" stop-color="#064e3b"/>
+        </linearGradient>
+    </defs>
+    <!-- Rounded Background Shield -->
+    <rect x="8" y="8" width="104" height="104" rx="24" fill="url(#ncaaGrad)"/>
+    <!-- Outer Shield Border -->
+    <rect x="12" y="12" width="96" height="96" rx="20" fill="none" stroke="#10b981" stroke-width="2" opacity="0.4"/>
+    
+    <!-- Stylized Wings / Quality Compass -->
+    <path d="M60 26 L78 52 L60 46 L42 52 Z" fill="#ffffff" opacity="0.95"/>
+    <path d="M26 62 L54 62 L60 56 L42 54 Z" fill="#6ee7b7"/>
+    <path d="M94 62 L66 62 L60 56 L78 54 Z" fill="#6ee7b7"/>
+    
+    <!-- Shield Center Checkmark -->
+    <circle cx="60" cy="74" r="18" fill="#ffffff"/>
+    <path d="M52 74 L57 79 L69 67" fill="none" stroke="#047857" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -113,7 +113,10 @@
 <body>
     <div class="border-frame">
         <div class="header">
-            <div class="crest">NIGERIA CIVIL AVIATION AUTHORITY</div>
+            <div style="text-align: center; margin-bottom: 8px;">
+                <img src="{{ public_path('images/logo-placeholder.svg') }}" width="48" height="48" alt="Logo">
+            </div>
+            <div class="crest">DSD QA/IA SYSTEM</div>
             <div class="subtitle">Directorate of Special Duties (DSD) &bull; Internal Quality Assurance</div>
         </div>
 

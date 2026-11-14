@@ -123,6 +123,30 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
             .'It is recommended that the audited directorate institute mandatory refresher briefings, enforce daily supervisory sign-offs, and submit formal Corrective Action Plans (CAP) within 14 calendar days for follow-up verification by NCAA inspectors.';
     }
 
+    /**
+     * Realistic canned executive QA management report.
+     */
+    public function generateReport(string $context): string
+    {
+        return "## Executive Overview\n"
+            ."This management quality report provides an aggregate evaluation of quality assurance audits and statutory compliance oversight conducted by the Directorate of Special Duties (DSD). Operational activities continue to maintain regulatory alignment with the Nigeria Civil Aviation Regulations (Nig.CARs) and ICAO Annex standards, while identifying localized vulnerabilities requiring systemic intervention.\n\n"
+            ."## Key Risks\n"
+            ."- **Apron Ground Support Hazards:** Unchecked Ground Support Equipment (GSE) and inconsistent wheel chock deployments on active ramps pose immediate aircraft turnaround risks.\n"
+            ."- **Calibration Expirations:** Precision inspection tool recalibration delays within avionics and structural maintenance units elevate non-compliance exposure.\n"
+            ."- **Record-Keeping Lapses:** Incomplete deferred defect entries and signature delays across technical flight logbooks.\n\n"
+            ."## Recurring Non-Compliances\n"
+            ."- **NIG.CARs.Part12.045:** Ramp safety spacing and barrier chock compliance across line stations.\n"
+            ."- **Nig.CARs Part 6.5.2:** Periodic verification and third-party laboratory calibration certificates for testing equipment.\n"
+            ."- **Nig.CARs Part 8.5.3:** Apron PPE enforcement in high-noise and hazardous turnaround zones.\n\n"
+            ."## Overdue Actions & CAP Resolution\n"
+            ."- Two Level 1 Non-Conformance Reports currently exceed statutory 72-hour rectification deadlines.\n"
+            ."- Corrective Action Plans (CAPs) for ramp maintenance storage require immediate supervisory verification before formal closure.\n\n"
+            ."## Strategic Recommendations\n"
+            ."- Institute mandatory monthly apron safety stand-downs for all ground operations personnel.\n"
+            ."- Automate digital calibration tracking notifications 30 days prior to tool certificate expiration.\n"
+            .'- Mandate bi-weekly CAP resolution tracking sessions led by unit QA coordinators.';
+    }
+
     public function analyzeFinding(string $title, string $condition, ?string $criteria = null): array
     {
         $lowered = strtolower($title.' '.$condition);
