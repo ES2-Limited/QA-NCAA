@@ -12,6 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('audits', function (Blueprint $table) {
+            $table->foreignId('directorate_id')->nullable()->change();
+            $table->date('start_date')->nullable()->change();
+            $table->string('reference_number')->nullable()->change();
+
             if (! Schema::hasColumn('audits', 'process_id')) {
                 $table->foreignId('process_id')->nullable()->after('id')->constrained('processes')->cascadeOnDelete();
             }

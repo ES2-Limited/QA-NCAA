@@ -340,6 +340,16 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
                 Start Audit Now
             </flux:button>
         </div>
+    @elseif($audit->status === 'returned')
+        <div class="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl space-y-1">
+            <div class="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                <flux:icon.exclamation-triangle class="size-4 text-amber-600" />
+                Audit Returned by Reviewer
+            </div>
+            <p class="text-[11px] text-amber-800 dark:text-amber-300">
+                The reviewer returned this audit for clarifications or additional evidence. Update the relevant answers and resubmit.
+            </p>
+        </div>
     @endif
 
     <!-- REVIEW & SUBMIT SCREEN -->

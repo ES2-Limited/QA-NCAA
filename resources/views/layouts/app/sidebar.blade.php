@@ -20,6 +20,21 @@
                             {{ __('Field Audits') }}
                         </flux:sidebar.item>
                     @endhasrole
+                    @hasrole('reviewer')
+                        <flux:sidebar.item icon="magnifying-glass-circle" :href="route('review.index')" :current="request()->routeIs('review.*')" wire:navigate>
+                            {{ __('Review Queue') }}
+                        </flux:sidebar.item>
+                    @endhasrole
+                    @hasanyrole('head_of_audit|director')
+                        <flux:sidebar.item icon="check-badge" :href="route('approvals.index')" :current="request()->routeIs('approvals.*')" wire:navigate>
+                            {{ __('Approvals') }}
+                        </flux:sidebar.item>
+                    @endhasanyrole
+                    @hasanyrole('auditee|lead_auditor|reviewer|head_of_audit|director|system_admin')
+                        <flux:sidebar.item icon="exclamation-triangle" :href="route('ncrs.index')" :current="request()->routeIs('ncrs.*')" wire:navigate>
+                            {{ __('NCRs & CAPs') }}
+                        </flux:sidebar.item>
+                    @endhasanyrole
                 </flux:sidebar.group>
 
                 @hasanyrole('system_admin|lead_auditor|head_of_audit|director')

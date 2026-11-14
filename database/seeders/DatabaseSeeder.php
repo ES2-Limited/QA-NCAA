@@ -4,7 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\Audit;
 use App\Models\AuditAnswer;
+use App\Models\AuditApproval;
 use App\Models\AuditResponse;
+use App\Models\Certificate;
 use App\Models\ChecklistQuestion;
 use App\Models\CorrectiveActionPlan;
 use App\Models\Department;
@@ -15,6 +17,7 @@ use App\Models\Process;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\AuditAssigned;
+use App\Services\CertificateGenerator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
@@ -638,14 +641,155 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        CorrectiveActionPlan::firstOrCreate(
-            ['finding_id' => $fnd1->id],
+        // 7. Prompt 7: Setup Audits in specific lifecycle states
+        // Audit 3: Fully through the chain (director_approved) with 1 closed NCR and an issued certificate
+        $audit3 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-003'],
             [
-                'proposed_action' => 'Replaced bonding lead assembly with brand new certified copper braided wire and performed 0.5 ohm continuity certification.',
-                'root_cause_analysis' => 'Maintenance shift handover failure caused weekly test log skip.',
-                'responsible_person' => 'Station Fueling Ops Lead (Abuja Station)',
-                'target_completion_date' => now()->addDays(3),
-                'status' => 'pending_approval',
+                'title' => 'AMO Internal QA Audit — Q1 Certified Hangar Surveillance',
+                'type' => 'routine',
+                'process_id' => $procAmo->id,
+                'checklist_id' => $procAmo->id,
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Lagos MMA Maintenance Hangar 1',
+                'start_date' => now()->subDays(14),
+                'end_date' => now()->subDays(2),
+                'scheduled_for' => now()->subDays(14),
+                'status' => 'director_approved',
+                'submitted_at' => now()->subDays(10),
+                'questions_snapshot' => $amoSnapshot,
+                'scope' => 'Hangar tool store, calibration logs, Nig.CARs Part 6 compliance.',
+                'ai_summary' => "The NCAA Directorate of Special Duties completed an internal QA audit of the Lagos Maintenance Hangar. Conformance met high regulatory standards at 88% overall compliance.\n\nOne Level 2 NCR was raised regarding calibration sticker expiry on a pneumatic rivet gun and immediately resolved via re-calibration.\n\nAll corrective actions were verified compliant and statutory certification has been authorized by the Director of Special Duties.",
+            ]
+        );
+
+        $audit3->auditors()->syncWithoutDetaching([$seededUsers['field_auditor']->id]);
+
+        // Approval Trail for Audit 3
+        AuditApproval::firstOrCreate(
+            ['audit_id' => $audit3->id, 'action' => 'reviewed'],
+            [
+                'user_id' => $seededUsers['reviewer']->id,
+                'role' => 'reviewer',
+                'comment' => 'Field verification satisfactory. CAP verified and closed.',
+                'created_at' => now()->subDays(8),
+            ]
+        );
+
+        AuditApproval::firstOrCreate(
+            ['audit_id' => $audit3->id, 'action' => 'head_approved'],
+            [
+                'user_id' => $seededUsers['head_of_audit']->id,
+                'role' => 'head_of_audit',
+                'comment' => 'Endorsed for Director authorization.',
+                'created_at' => now()->subDays(5),
+            ]
+        );
+
+        AuditApproval::firstOrCreate(
+            ['audit_id' => $audit3->id, 'action' => 'director_approved'],
+            [
+                'user_id' => $seededUsers['director']->id,
+                'role' => 'director',
+                'comment' => 'Quality certification authorized.',
+                'created_at' => now()->subDays(2),
+            ]
+        );
+
+        // 1 Closed NCR for Audit 3
+        $ncrClosed = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0001'],
+            [
+                'audit_id' => $audit3->id,
+                'finding_number' => 'NCR-2026-0001',
+                'title' => 'Pneumatic Tool Calibration Sticker Overdue',
+                'level' => 2,
+                'description' => 'Pneumatic rivet gun sn# 4022 in hangar bay 1 tool store displayed calibration expiry date 10 days past interval.',
+                'condition' => 'Pneumatic rivet gun sn# 4022 in hangar bay 1 tool store displayed calibration expiry date 10 days past interval.',
+                'requirement_ref' => 'Nig.CARs Part 6.5.2',
+                'criteria' => 'Nig.CARs Part 6.5.2',
+                'assigned_unit_id' => $createdUnits['AIR-AMO']->id ?? null,
+                'raised_by' => $seededUsers['reviewer']->id,
+                'cap_due_at' => now()->subDays(3),
+                'due_date' => now()->subDays(3)->toDateString(),
+                'status' => 'closed',
+            ]
+        );
+
+        $capClosed = CorrectiveActionPlan::firstOrCreate(
+            ['ncr_id' => $ncrClosed->id],
+            [
+                'finding_id' => $ncrClosed->id,
+                'description' => 'Tool immediately quarantined, re-calibrated at NCAA approved laboratory, and tool room inventory audit completed.',
+                'proposed_action' => 'Tool immediately quarantined and re-calibrated.',
+                'root_cause' => 'Quarterly tool tracking tag fell off during tool room cleaning.',
+                'root_cause_analysis' => 'Quarterly tool tracking tag fell off.',
+                'target_date' => now()->subDays(4),
+                'target_completion_date' => now()->subDays(4),
+                'submitted_by' => $seededUsers['auditee']->id,
+                'responsible_person' => $seededUsers['auditee']->name,
+                'status' => 'accepted',
+                'reviewer_comment' => 'Calibration certificate #ISO-9921 inspected and verified compliant.',
+                'reviewed_by' => $seededUsers['reviewer']->id,
+                'reviewed_at' => now()->subDays(4),
+            ]
+        );
+
+        // Issue Certificate for Audit 3
+        app(CertificateGenerator::class)->generate($audit3, $seededUsers['director']->id);
+
+        // Audit 4: At "reviewed" waiting for Head of Audit
+        $audit4 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-004'],
+            [
+                'title' => 'Ramp Operations Surveillance — Awaiting Head Approval',
+                'type' => 'routine',
+                'process_id' => $procRamp->id,
+                'checklist_id' => $procRamp->id,
+                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Abuja Airport (DNAA / ABV)',
+                'start_date' => now()->subDays(4),
+                'scheduled_for' => now()->subDays(4),
+                'status' => 'reviewed',
+                'submitted_at' => now()->subDays(2),
+                'questions_snapshot' => $rampSnapshot,
+                'scope' => 'Abuja Apron Gate 1-5 surveillance and tarmac speed compliance.',
+            ]
+        );
+
+        AuditApproval::firstOrCreate(
+            ['audit_id' => $audit4->id, 'action' => 'reviewed'],
+            [
+                'user_id' => $seededUsers['reviewer']->id,
+                'role' => 'reviewer',
+                'comment' => 'Technical evaluation complete. Recommended for Head of Audit endorsement.',
+                'created_at' => now()->subDay(),
+            ]
+        );
+
+        // Open NCR with overdue CAP for auditee unit
+        $ncrOverdue = Finding::firstOrCreate(
+            ['reference' => 'NCR-2026-0002'],
+            [
+                'audit_id' => $audit4->id,
+                'finding_number' => 'NCR-2026-0002',
+                'title' => 'Missing Apron Fire Extinguisher Monthly Inspection Tag',
+                'level' => 1,
+                'description' => 'Wheel-mounted 50kg dry powder fire extinguisher on stand 3 missing statutory monthly inspection sign-off tag.',
+                'condition' => 'Wheel-mounted 50kg dry powder fire extinguisher on stand 3 missing statutory monthly inspection sign-off tag.',
+                'requirement_ref' => 'Nig.CARs Part 8.5.3 & ICAO Doc 9137',
+                'criteria' => 'Nig.CARs Part 8.5.3',
+                'assigned_unit_id' => $createdUnits['FLT-RAMP']->id ?? null,
+                'raised_by' => $seededUsers['reviewer']->id,
+                'cap_due_at' => now()->subHours(24), // 24 hours overdue
+                'due_date' => now()->subDays(1)->toDateString(),
+                'status' => 'open',
             ]
         );
     }

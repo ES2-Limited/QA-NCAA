@@ -24,6 +24,7 @@ class Audit extends Model
         'submitted_at',
         'questions_snapshot',
         'scope',
+        'ai_summary',
         'executive_summary',
         'ai_executive_summary',
     ];
@@ -91,6 +92,16 @@ class Audit extends Model
     public function findings()
     {
         return $this->hasMany(Finding::class);
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(AuditApproval::class)->orderBy('created_at', 'asc');
+    }
+
+    public function certificate()
+    {
+        return $this->hasOne(Certificate::class);
     }
 
     // Helper to calculate compliance score %
