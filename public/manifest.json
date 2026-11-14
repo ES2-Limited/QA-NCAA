@@ -2,7 +2,7 @@
   "name": "NCAA DSD Quality & Audit Portal",
   "short_name": "NCAA QA/IA",
   "description": "Digital Quality Assurance & Internal Audit System for NCAA Directorate of Special Duties",
-  "start_url": "/auditor",
+  "start_url": "/field",
   "display": "standalone",
   "background_color": "#064e3b",
   "theme_color": "#047857",

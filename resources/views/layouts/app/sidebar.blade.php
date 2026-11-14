@@ -15,11 +15,11 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
-                    @hasanyrole('system_admin|lead_auditor|field_auditor|reviewer|head_of_audit|director|auditee')
-                        <flux:sidebar.item icon="clipboard-document-check" :href="route('auditor.dashboard')" :current="request()->routeIs('auditor.*')">
-                            {{ __('QA / Internal Audit') }}
+                    @hasrole('field_auditor')
+                        <flux:sidebar.item icon="clipboard-document-check" :href="route('field.index')" :current="request()->routeIs('field.*')" wire:navigate>
+                            {{ __('Field Audits') }}
                         </flux:sidebar.item>
-                    @endhasanyrole
+                    @endhasrole
                 </flux:sidebar.group>
 
                 @hasanyrole('system_admin|lead_auditor|head_of_audit|director')

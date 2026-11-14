@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Audit;
+use App\Models\AuditAnswer;
 use App\Models\AuditResponse;
 use App\Models\ChecklistQuestion;
 use App\Models\CorrectiveActionPlan;
@@ -531,6 +532,75 @@ class DatabaseSeeder extends Seeder
         // Create Notifications for Audit 2
         $seededUsers['field_auditor']->notify(new AuditAssigned($audit2));
         $seededUsers['reviewer']->notify(new AuditAssigned($audit2));
+
+        // Prompt 6: Seed 3 AuditAnswers for in_progress audit1 with Abuja Airport coordinates & sample photos
+        $abujaLat = 9.0067920;
+        $abujaLng = 7.2631720;
+
+        // Ensure evidence directory exists
+        Storage::disk('public')->makeDirectory('evidence');
+
+        // Answer 1 (Question Key 0)
+        $ans1 = AuditAnswer::firstOrCreate(
+            ['audit_id' => $audit1->id, 'question_key' => 0],
+            [
+                'value' => 'Compliant',
+                'comment' => 'Pushback tugs and belt loaders display active NCAA mechanical passes expiring Dec 2026.',
+                'lat' => $abujaLat,
+                'lng' => $abujaLng,
+                'location_accuracy' => 4.5,
+                'answered_at' => now()->subHours(4),
+                'answered_by' => $seededUsers['field_auditor']->id,
+            ]
+        );
+
+        $ans1->attachments()->firstOrCreate(
+            ['path' => 'evidence/ramp_sample_photo1.png'],
+            [
+                'original_name' => 'gse_inspection_pass.png',
+                'mime_type' => 'image/png',
+                'size' => 10240,
+                'uploaded_by' => $seededUsers['field_auditor']->id,
+            ]
+        );
+
+        // Answer 2 (Question Key 1)
+        $ans2 = AuditAnswer::firstOrCreate(
+            ['audit_id' => $audit1->id, 'question_key' => 1],
+            [
+                'value' => 'Compliant',
+                'comment' => 'FOD bin inspection log signed off for gate 4 prior to docking.',
+                'lat' => $abujaLat,
+                'lng' => $abujaLng,
+                'location_accuracy' => 5.2,
+                'answered_at' => now()->subHours(3),
+                'answered_by' => $seededUsers['field_auditor']->id,
+            ]
+        );
+
+        $ans2->attachments()->firstOrCreate(
+            ['path' => 'evidence/ramp_sample_photo2.png'],
+            [
+                'original_name' => 'fod_sweep_gate4.png',
+                'mime_type' => 'image/png',
+                'size' => 10240,
+                'uploaded_by' => $seededUsers['field_auditor']->id,
+            ]
+        );
+
+        // Answer 3 (Question Key 2 - checkbox)
+        AuditAnswer::firstOrCreate(
+            ['audit_id' => $audit1->id, 'question_key' => 2],
+            [
+                'value' => ['High-visibility vest', 'Noise-attenuating earmuffs', 'Steel-toe footwear'],
+                'comment' => '100% PPE compliance observed across line marshals on gate 4 stand.',
+                'lat' => $abujaLat,
+                'lng' => $abujaLng,
+                'location_accuracy' => 3.8,
+                'answered_at' => now()->subHours(2),
+                'answered_by' => $seededUsers['field_auditor']->id,
+            ]
+        );
 
         foreach ($procRamp->questions as $it) {
             $status = ($it->order === 4) ? 'non_compliant' : 'compliant';

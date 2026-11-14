@@ -67,9 +67,11 @@ new #[Title('Audit Overview')] class extends Component {
             <flux:button href="{{ route('audits.index') }}" variant="ghost" wire:navigate>
                 &larr; Back to Audits
             </flux:button>
-            <flux:button href="{{ route('auditor.execution', $audit->id) }}" variant="primary" icon="clipboard-document-check">
-                Open Field Execution
-            </flux:button>
+            @hasrole('field_auditor')
+                <flux:button href="{{ route('field.audit', $audit->id) }}" variant="primary" icon="clipboard-document-check" wire:navigate>
+                    Open Field Execution
+                </flux:button>
+            @endhasrole
         </div>
     </div>
 

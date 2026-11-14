@@ -21,6 +21,7 @@ class Audit extends Model
         'start_date',
         'end_date',
         'status',
+        'submitted_at',
         'questions_snapshot',
         'scope',
         'executive_summary',
@@ -31,6 +32,7 @@ class Audit extends Model
         'scheduled_for' => 'date',
         'start_date' => 'date',
         'end_date' => 'date',
+        'submitted_at' => 'datetime',
         'questions_snapshot' => 'array',
     ];
 
@@ -74,6 +76,11 @@ class Audit extends Model
     public function auditors()
     {
         return $this->belongsToMany(User::class, 'audit_user')->withTimestamps();
+    }
+
+    public function answers()
+    {
+        return $this->hasMany(AuditAnswer::class);
     }
 
     public function responses()
