@@ -19,18 +19,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(AiServiceInterface::class, function () {
-            $apiKey = env('GEMINI_API_KEY');
-            if (empty($apiKey)) {
-                return new FakeAiService;
-            }
+        $this->app->singleton(AiServiceContract::class, function () {
+            $key = config('services.gemini.key');
 
-            $model = env('GEMINI_MODEL', 'gemini-1.5-flash');
-
-            return new GeminiAiService($apiKey, $model);
+            return ! empty($key)
+                ? new GeminiAiService
+                : new FakeAiService;
         });
 
-        $this->app->bind(AiServiceContract::class, FakeAiService::class);
+        $this->app->singleton(AiServiceInterface::class, function ($app) {
+            return $app->make(AiServiceContract::class);
+        });
     }
 
     /**

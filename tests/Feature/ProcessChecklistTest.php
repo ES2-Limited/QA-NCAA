@@ -97,7 +97,7 @@ test('AI generate returns draft questions via FakeAiService', function () {
     $this->actingAs($leadAuditor);
 
     $aiService = app(AiService::class);
-    $mockQuestions = $aiService->generateChecklist('Aviation Fuel Testing Facility', 5);
+    $mockQuestions = $aiService->generateChecklist('', 'Aviation Fuel Testing Facility', 5);
 
     expect($mockQuestions)->toBeArray();
     expect(count($mockQuestions))->toBe(5);

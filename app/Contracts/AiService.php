@@ -5,15 +5,21 @@ namespace App\Contracts;
 interface AiService
 {
     /**
-     * Generate realistic aviation QA checklist questions based on scope and requested quantity.
+     * Generate aviation QA checklist questions based on requirement text, scope, and requested quantity.
      *
      * @return array<int, array{
      *     question: string,
      *     type: string,
      *     options: array<string>|null,
      *     requirement_ref: string|null,
-     *     guidance: string|null
+     *     guidance: string|null,
+     *     source?: string
      * }>
      */
-    public function generateChecklist(string $scope, int $count = 8): array;
+    public function generateChecklist(string $requirementText, string $scope, int $count = 8): array;
+
+    /**
+     * Summarise audit findings and context for leadership.
+     */
+    public function summariseAudit(string $auditContext): string;
 }

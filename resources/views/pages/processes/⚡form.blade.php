@@ -7,6 +7,8 @@ use App\Models\Directorate;
 use App\Models\Document;
 use App\Models\Process;
 use App\Models\Unit;
+use App\Services\DocumentTextExtractor;
+use App\Services\GeminiAiService;
 use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -44,6 +46,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
     public $showAiModal = false;
     public $aiScope = '';
     public $aiCount = 8;
+    public $aiDocumentId = '';
     public $isGeneratingAi = false;
 
     public function mount($process = null)
@@ -202,14 +205,28 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
     {
         $this->aiScope = $this->name ?: 'Aviation Quality & Safety Operations';
         $this->aiCount = 8;
+        $this->aiDocumentId = ! empty($this->selectedDocumentIds) ? (string) $this->selectedDocumentIds[0] : '';
         $this->showAiModal = true;
     }
 
-    public function generateWithAi(AiServiceContract $ai)
+    public function generateWithAi(AiServiceContract $ai, DocumentTextExtractor $extractor)
     {
+        $this->validate([
+            'aiScope' => 'required|string|max:255',
+            'aiCount' => 'required|integer|min:1|max:20',
+        ]);
+
         $this->isGeneratingAi = true;
 
-        $generated = $ai->generateChecklist($this->aiScope, (int)$this->aiCount);
+        $requirementText = '';
+        if (! empty($this->aiDocumentId)) {
+            $doc = Document::find($this->aiDocumentId);
+            if ($doc) {
+                $requirementText = $extractor->extract($doc);
+            }
+        }
+
+        $generated = $ai->generateChecklist($requirementText, $this->aiScope, (int) $this->aiCount);
 
         foreach ($generated as $item) {
             $this->questions[] = [
@@ -639,21 +656,55 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
     @endif
 
     <!-- AI Generation Modal -->
-    <flux:modal wire:model="showAiModal" class="md:w-96 space-y-4">
-        <div>
-            <flux:heading size="lg">Generate Checklist with AI</flux:heading>
-            <flux:subheading>Generate draft aviation QA verification questions</flux:subheading>
+    <flux:modal wire:model="showAiModal" class="md:w-[28rem] space-y-4">
+        @php
+            $isLiveAi = app(\App\Contracts\AiService::class) instanceof \App\Services\GeminiAiService;
+            $attachedDocs = \App\Models\Document::whereIn('id', $selectedDocumentIds)->get();
+        @endphp
+
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <flux:heading size="lg">Generate Checklist with AI</flux:heading>
+                    @if($isLiveAi)
+                        <flux:badge size="sm" color="emerald">Live AI</flux:badge>
+                    @else
+                        <flux:badge size="sm" color="zinc">Demo AI</flux:badge>
+                    @endif
+                </div>
+                <flux:subheading>Generate draft aviation QA verification questions</flux:subheading>
+            </div>
         </div>
 
         <div class="space-y-4">
+            <div>
+                <flux:select wire:model="aiDocumentId" label="Source Document">
+                    <flux:select.option value="">None, use scope only</flux:select.option>
+                    @foreach($attachedDocs as $d)
+                        <flux:select.option value="{{ $d->id }}">{{ $d->title }} ({{ strtoupper(pathinfo($d->file_path, PATHINFO_EXTENSION)) }})</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @if(empty($selectedDocumentIds))
+                    <p class="text-[11px] text-zinc-500 mt-1 italic">Tip: Link documents in Step 2 to use them as reference standards here.</p>
+                @endif
+            </div>
+
             <flux:input wire:model="aiScope" label="Scope / Objective *" placeholder="e.g. Ramp safety, fuel bowser checks..." required />
             <flux:input wire:model="aiCount" type="number" min="1" max="20" label="Number of Questions" required />
+
+            <div wire:loading wire:target="generateWithAi" class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center space-x-2">
+                <svg class="animate-spin h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="font-medium">Reading document and drafting questions…</span>
+            </div>
 
             <div class="flex justify-end space-x-2 pt-2">
                 <flux:button wire:click="$set('showAiModal', false)" variant="ghost">Cancel</flux:button>
                 <flux:button wire:click="generateWithAi" variant="primary" icon="sparkles" wire:loading.attr="disabled">
-                    <span wire:loading.remove>Generate Questions</span>
-                    <span wire:loading>Synthesizing...</span>
+                    <span wire:loading.remove wire:target="generateWithAi">Generate Questions</span>
+                    <span wire:loading wire:target="generateWithAi">Drafting...</span>
                 </flux:button>
             </div>
         </div>

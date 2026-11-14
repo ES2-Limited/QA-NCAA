@@ -7,9 +7,9 @@ use App\Contracts\AiService as AiServiceContract;
 class FakeAiService implements AiServiceContract, AiServiceInterface
 {
     /**
-     * Generate realistic aviation QA checklist questions based on scope and requested quantity.
+     * Generate realistic aviation QA checklist questions based on requirement text, scope, and requested quantity.
      */
-    public function generateChecklist(string $scope, int $count = 8): array
+    public function generateChecklist(string $requirementText, string $scope, int $count = 8): array
     {
         $pool = [
             [
@@ -18,6 +18,7 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 5.4.1 & ICAO Annex 6',
                 'guidance' => 'Inspect the previous 30 days of sector sheets and check cross-references to the Minimum Equipment List (MEL).',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Verify that precision torque wrenches and pitot-static test equipment possess valid ISO 17025 calibration certificates.',
@@ -25,6 +26,7 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 6.5.2 & ICAO Doc 9760',
                 'guidance' => 'Sample 5 calibrated tools in the avionics and sheet metal workshops.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Are bonded chemical and sealant stores maintained within manufacturer temperature and shelf-life limits?',
@@ -32,6 +34,7 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 6.3.4 & ICAO Annex 8',
                 'guidance' => 'Check refrigerator temperature loggers and inspect expiry labels on structural adhesives.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Confirm all Ground Support Equipment (GSE) active on apron possess valid NCAA mechanical inspection safety passes.',
@@ -39,13 +42,15 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 8.4.1.2 & ICAO Doc 10121',
                 'guidance' => 'Conduct physical inspection of ramp tugs, baggage loaders, and fuel bowsers.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Document any FOD mitigation discrepancies or unsealed ramp rubbish collection bins observed during the audit walkthrough.',
                 'type' => 'text',
-                'options' => null,
+                'options' => [],
                 'requirement_ref' => 'Nig.CARs Part 12 & ICAO Doc 9137 Part 2',
                 'guidance' => 'Record specific aircraft bay numbers and proximity to active jet taxiways.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Select all mandatory ramp PPE verified in use by line engineers and ground handling handlers during turnaround.',
@@ -53,6 +58,7 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['High-visibility vest', 'Ear protection (muffs/plugs)', 'Steel-toe safety boots', 'Protective eyewear'],
                 'requirement_ref' => 'Nig.CARs Part 8.5.3',
                 'guidance' => '100% compliance required for all ground handlers in active engine ingestion hazard zones.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Has aviation fuel hydrant bonding continuity resistance been verified at under 0.5 ohms prior to delivery into aircraft tanks?',
@@ -60,6 +66,7 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 8.8.2.1 & NFPA 407',
                 'guidance' => 'Inspect bonding reel cables and calibration certification stamp on bowser meters.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Are aircraft parts and rotable components accompanied by FAA Form 8130-3, EASA Form 1, or NCAA Form One release certificates?',
@@ -67,13 +74,15 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 5.6.1',
                 'guidance' => 'Perform physical bin check in quarantine and serviceable bonded stores.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'State the root cause analysis and immediate containment actions for any open recurring safety action notices.',
                 'type' => 'text',
-                'options' => null,
+                'options' => [],
                 'requirement_ref' => 'ICAO Annex 19 Safety Management Systems (SMS)',
                 'guidance' => 'Evaluate whether closed corrective actions prevented hazard recurrence within the past 90 days.',
+                'source' => 'ai',
             ],
             [
                 'question' => 'Confirm flight crew fatigue tracking records and rest period logs comply with NCAA statutory duty time limitations.',
@@ -81,6 +90,7 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 8.10.1 & ICAO Annex 6',
                 'guidance' => 'Sample duty roster records for line pilots operating multi-sector domestic flight schedules.',
+                'source' => 'ai',
             ],
         ];
 
@@ -96,10 +106,21 @@ class FakeAiService implements AiServiceContract, AiServiceInterface
                 'options' => ['Compliant', 'Non-compliant', 'N/A'],
                 'requirement_ref' => 'Nig.CARs Part 8.4',
                 'guidance' => 'Assess operational manual adherence and staff licensing records.',
+                'source' => 'ai',
             ];
         }
 
         return $results;
+    }
+
+    /**
+     * Canned 3-paragraph summary of audit findings.
+     */
+    public function summariseAudit(string $auditContext): string
+    {
+        return "The NCAA Directorate of Special Duties completed a quality assurance audit assessing operational conformance against Nig.CARs and approved operational procedures. The engagement verified personnel qualifications, records continuity, equipment calibrations, and facility safety controls across the designated inspection areas.\n\n"
+            ."During the audit cycle, primary non-compliances were identified in maintenance tracking records, adherence to preventive inspection intervals, and documentation of ground safety checks. Corrective action requests have been issued for all findings to prevent recurring procedural non-conformances.\n\n"
+            .'It is recommended that the audited directorate institute mandatory refresher briefings, enforce daily supervisory sign-offs, and submit formal Corrective Action Plans (CAP) within 14 calendar days for follow-up verification by NCAA inspectors.';
     }
 
     public function analyzeFinding(string $title, string $condition, ?string $criteria = null): array
