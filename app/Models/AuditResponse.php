@@ -22,7 +22,12 @@ class AuditResponse extends Model
 
     public function checklistItem()
     {
-        return $this->belongsTo(ChecklistItem::class);
+        return $this->belongsTo(ChecklistQuestion::class, 'checklist_item_id');
+    }
+
+    public function question()
+    {
+        return $this->belongsTo(ChecklistQuestion::class, 'checklist_item_id');
     }
 
     public function auditor()

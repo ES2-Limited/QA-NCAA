@@ -4,13 +4,13 @@ namespace Database\Seeders;
 
 use App\Models\Audit;
 use App\Models\AuditResponse;
-use App\Models\Checklist;
-use App\Models\ChecklistItem;
+use App\Models\ChecklistQuestion;
 use App\Models\CorrectiveActionPlan;
 use App\Models\Department;
 use App\Models\Directorate;
 use App\Models\Document;
 use App\Models\Finding;
+use App\Models\Process;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -246,70 +246,220 @@ class DatabaseSeeder extends Seeder
             $seededUsers[$u['role']] = $user;
         }
 
-        // 4. Standard Checklists & Items
-        $chkGround = Checklist::firstOrCreate(
-            ['code' => 'CHK-GRD-2026'],
-            [
-                'title' => 'Ramp Safety & Ground Handling Quality Surveillance',
-                'category' => 'ground_ops',
-                'description' => 'Comprehensive apron and ramp inspection protocol based on Nig.CARs Part 8.4 and ICAO Doc 10121.',
-                'is_active' => true,
-            ]
-        );
+        // 4. Document Library Sample Files & Seed Records (Seed before processes so documents can be linked)
+        Storage::disk('public')->makeDirectory('documents');
 
-        $groundItems = [
+        $sampleFiles = [
             [
-                'item_code' => 'GRD-01',
-                'requirement' => 'All Ground Support Equipment (GSE) on active ramp must possess valid NCAA inspection stickers and functional wheel chocks.',
-                'guidance' => 'Inspect tugs, belt loaders, and fuel bowsers for fuel leaks and valid certification tags.',
-                'regulatory_reference' => 'Nig.CARs Part 8.4.1.2 & ICAO Annex 14',
-                'order_index' => 1,
+                'title' => 'Internal QA Programme Requirements',
+                'description' => 'Mandatory framework and operating procedures for NCAA Directorate internal quality audits.',
+                'filename' => 'internal_qa_programme_requirements.pdf',
+                'unit_code' => 'QA-AUD',
             ],
             [
-                'item_code' => 'GRD-02',
-                'requirement' => 'Foreign Object Debris (FOD) mitigation sweep logs must be recorded at every gate prior to scheduled aircraft arrivals.',
-                'guidance' => 'Verify gate logbook entries and inspect ramp bin cleanliness within 15 meters of aircraft parking.',
-                'regulatory_reference' => 'ICAO Doc 9137 Part 2 & Nig.CARs Part 12',
-                'order_index' => 2,
-            ],
-            [
-                'item_code' => 'GRD-03',
-                'requirement' => 'Marshaling and wing-walker personnel must wear high-visibility PPE, noise attenuators, and maintain clear two-way comms with cockpit.',
-                'guidance' => 'Check active ramp crew for compliant safety vest, earmuffs, and illuminated wands during dusk operations.',
-                'regulatory_reference' => 'Nig.CARs Part 8.5.3',
-                'order_index' => 3,
-            ],
-            [
-                'item_code' => 'GRD-04',
-                'requirement' => 'Aviation fuel hydrant bonding and earthing cable verification prior to fuel delivery into aircraft tanks.',
-                'guidance' => 'Verify static earthing reel continuity and bowser meter calibration certificate.',
-                'regulatory_reference' => 'Nig.CARs Part 8.8.2.1',
-                'order_index' => 4,
-            ],
-            [
-                'item_code' => 'GRD-05',
-                'requirement' => 'Baggage make-up area security access control and 100% hold-baggage reconciliation before cargo door lock.',
-                'guidance' => 'Inspect access biometric turnstile and audit sample manifest against BRS.',
-                'regulatory_reference' => 'Nig.CARs Part 17 AVSEC & ICAO Annex 17',
-                'order_index' => 5,
+                'title' => 'AMO Surveillance Checklist Guidelines',
+                'description' => 'Inspection criteria and oversight protocols for Approved Maintenance Organizations under Nig.CARs Part 6.',
+                'filename' => 'amo_surveillance_checklist_guidelines.pdf',
+                'unit_code' => 'AIR-AMO',
             ],
         ];
 
-        foreach ($groundItems as $item) {
-            ChecklistItem::firstOrCreate(
-                ['checklist_id' => $chkGround->id, 'item_code' => $item['item_code']],
-                $item
+        foreach ($sampleFiles as $sample) {
+            $sourcePath = database_path('seeders/files/'.$sample['filename']);
+            $targetStoragePath = 'documents/'.$sample['filename'];
+
+            if (File::exists($sourcePath)) {
+                $fileBytes = File::get($sourcePath);
+                Storage::disk('public')->put($targetStoragePath, $fileBytes);
+                $size = File::size($sourcePath);
+                $mimeType = 'application/pdf';
+
+                Document::firstOrCreate(
+                    ['title' => $sample['title']],
+                    [
+                        'description' => $sample['description'],
+                        'file_path' => $targetStoragePath,
+                        'original_name' => $sample['filename'],
+                        'mime_type' => $mimeType,
+                        'size' => $size,
+                        'unit_id' => $createdUnits[$sample['unit_code']]->id ?? null,
+                        'uploaded_by' => $seededUsers['lead_auditor']->id,
+                    ]
+                );
+            }
+        }
+
+        // 5. Processes & Checklist Questions (Replaces old Checklists)
+        // Process 1: AMO Internal QA Audit (DAWS, routine, monthly, next due in 10 days)
+        $procAmo = Process::firstOrCreate(
+            ['name' => 'AMO Internal QA Audit'],
+            [
+                'description' => 'Comprehensive continuing airworthiness & maintenance organization quality inspection template.',
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'department_id' => $createdDepartments['DAWS-AIR']->id ?? null,
+                'unit_id' => $createdUnits['AIR-AMO']->id ?? null,
+                'type' => 'routine',
+                'frequency' => 'monthly',
+                'next_due_at' => now()->addDays(10),
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'status' => 'active',
+            ]
+        );
+
+        // Link to AMO Surveillance Checklist Guidelines document
+        $amoDoc = Document::where('title', 'AMO Surveillance Checklist Guidelines')->first();
+        if ($amoDoc) {
+            $procAmo->documents()->syncWithoutDetaching([$amoDoc->id]);
+        }
+
+        $amoQuestions = [
+            [
+                'question' => 'Are all aircraft technical logbooks certified by authorized type-rated engineers with valid NCAA AME licenses?',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 5.4.1',
+                'guidance' => 'Inspect tech logs for the past 30 days and sample 5 defect rectifications.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Does the precision tool store hold current ISO 17025 calibration records for all torque and avionics testers?',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 6.5.2',
+                'guidance' => 'Verify calibration expiration stickers and quarantine shelves for out-of-spec tooling.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Confirm storage of aircraft composites and bonded sealants within specified temperature and shelf-life thresholds.',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 6.3.4 & ICAO Annex 8',
+                'guidance' => 'Inspect climate logging monitors in bonded storage.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Are all rotable parts tagged with valid Airworthiness Release Certificates (NCAA Form One / 8130-3 / EASA Form 1)?',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 5.6.1',
+                'guidance' => 'Random physical bin check of 10 incoming rotable parts.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Select all hangar fire suppression and emergency safety equipment verified functional during physical walkthrough.',
+                'type' => 'checkbox',
+                'options' => ['Foam deluge system', 'CO2 wheel extinguishers', 'Eye wash stations', 'Emergency egress lighting'],
+                'requirement_ref' => 'Nig.CARs Part 6.4.2',
+                'guidance' => 'Ensure inspection tags are dated within the past 12 months.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Describe any open structural repairs currently deferred beyond OEM structural repair manual (SRM) allowances.',
+                'type' => 'text',
+                'options' => null,
+                'requirement_ref' => 'Nig.CARs Part 5.5.3',
+                'guidance' => 'Record tail registration, date deferred, and engineering authority authorization.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Has the internal QA independent audit schedule achieved 100% completion for all active hangar bays this quarter?',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'ICAO Doc 9859 Safety Management Systems',
+                'guidance' => 'Review internal audit closure log and directorate corrective actions.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Verify that maintenance personnel recurrent training on Human Factors and Nig.CARs updates is within 24 months.',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 6.2.2',
+                'guidance' => 'Check training matrix for all active shift engineers.',
+                'source' => 'manual',
+            ],
+        ];
+
+        foreach ($amoQuestions as $idx => $q) {
+            ChecklistQuestion::firstOrCreate(
+                ['process_id' => $procAmo->id, 'order' => $idx + 1],
+                array_merge($q, ['order' => $idx + 1])
             );
         }
 
-        // 5. Audit Engagements
+        // Process 2: Ramp Safety Spot Check (unplanned, 5 questions)
+        $procRamp = Process::firstOrCreate(
+            ['name' => 'Ramp Safety Spot Check'],
+            [
+                'description' => 'Unannounced ramp surveillance inspection protocol evaluating tarmac safety and ground handling compliance.',
+                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'department_id' => $createdDepartments['DOLG-FLT']->id ?? null,
+                'unit_id' => $createdUnits['FLT-RAMP']->id ?? null,
+                'type' => 'unplanned',
+                'frequency' => null,
+                'next_due_at' => null,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'status' => 'active',
+            ]
+        );
+
+        $rampQuestions = [
+            [
+                'question' => 'Are all Ground Support Equipment (GSE) active on ramp displaying valid NCAA annual safety inspection passes?',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 8.4.1.2 & ICAO Doc 10121',
+                'guidance' => 'Inspect pushback tugs, belt loaders, and fuel bowsers.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Confirm Foreign Object Debris (FOD) mitigation sweep completed and signed in the gate log prior to aircraft docking.',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'ICAO Doc 9137 Part 2 & Nig.CARs Part 12',
+                'guidance' => 'Inspect ramp bin cleanliness within 15 meters of aircraft parking.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Select verified PPE worn by all marshaling and ramp operations personnel on active aircraft stands.',
+                'type' => 'checkbox',
+                'options' => ['High-visibility vest', 'Noise-attenuating earmuffs', 'Steel-toe footwear'],
+                'requirement_ref' => 'Nig.CARs Part 8.5.3',
+                'guidance' => 'Full personal protective equipment is mandatory within active safety lines.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Verify aircraft fuel hydrant bonding and earthing cable continuity before fuel transfer commences.',
+                'type' => 'radio',
+                'options' => ['Compliant', 'Non-compliant', 'N/A'],
+                'requirement_ref' => 'Nig.CARs Part 8.8.2.1',
+                'guidance' => 'Inspect static grounding reel wire integrity.',
+                'source' => 'manual',
+            ],
+            [
+                'question' => 'Record any observed safety anomalies, unauthorized vehicle speeding, or jet blast boundary violations.',
+                'type' => 'text',
+                'options' => null,
+                'requirement_ref' => 'Nig.CARs Part 8.4.5',
+                'guidance' => 'Note gate number, GSE equipment ID, and airline flight code.',
+                'source' => 'manual',
+            ],
+        ];
+
+        foreach ($rampQuestions as $idx => $q) {
+            ChecklistQuestion::firstOrCreate(
+                ['process_id' => $procRamp->id, 'order' => $idx + 1],
+                array_merge($q, ['order' => $idx + 1])
+            );
+        }
+
+        // 6. Audit Engagements
         $audit1 = Audit::firstOrCreate(
             ['reference_number' => 'AUD-2026-DSD-001'],
             [
                 'title' => 'Ramp Safety & Fuel Quality Surveillance Audit - Nnamdi Azikiwe Int\'l Airport',
                 'type' => 'surveillance',
                 'directorate_id' => $createdDirectorates['DOLG']->id,
-                'checklist_id' => $chkGround->id,
+                'checklist_id' => $procRamp->id,
                 'lead_auditor_id' => $seededUsers['lead_auditor']->id,
                 'location' => 'Abuja Airport (DNAA / ABV)',
                 'start_date' => now()->subDays(2),
@@ -320,9 +470,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        foreach (ChecklistItem::where('checklist_id', $chkGround->id)->get() as $it) {
-            $status = ($it->item_code === 'GRD-04') ? 'non_compliant' : 'compliant';
-            $notes = ($it->item_code === 'GRD-04') ? 'Static bonding cable showed physical outer insulation wear and missing continuity tag.' : 'Verified compliant during physical ramp inspection.';
+        foreach ($procRamp->questions as $it) {
+            $status = ($it->order === 4) ? 'non_compliant' : 'compliant';
+            $notes = ($it->order === 4) ? 'Static bonding cable showed physical outer insulation wear and missing continuity tag.' : 'Verified compliant during physical ramp inspection.';
 
             AuditResponse::firstOrCreate(
                 ['audit_id' => $audit1->id, 'checklist_item_id' => $it->id],
@@ -366,48 +516,5 @@ class DatabaseSeeder extends Seeder
                 'status' => 'pending_approval',
             ]
         );
-
-        // 6. Document Library Sample Files & Seed Records
-        Storage::disk('public')->makeDirectory('documents');
-
-        $sampleFiles = [
-            [
-                'title' => 'Internal QA Programme Requirements',
-                'description' => 'Mandatory framework and operating procedures for NCAA Directorate internal quality audits.',
-                'filename' => 'internal_qa_programme_requirements.pdf',
-                'unit_code' => 'QA-AUD',
-            ],
-            [
-                'title' => 'AMO Surveillance Checklist Guidelines',
-                'description' => 'Inspection criteria and oversight protocols for Approved Maintenance Organizations under Nig.CARs Part 6.',
-                'filename' => 'amo_surveillance_checklist_guidelines.pdf',
-                'unit_code' => 'AIR-AMO',
-            ],
-        ];
-
-        foreach ($sampleFiles as $sample) {
-            $sourcePath = database_path('seeders/files/'.$sample['filename']);
-            $targetStoragePath = 'documents/'.$sample['filename'];
-
-            if (File::exists($sourcePath)) {
-                $fileBytes = File::get($sourcePath);
-                Storage::disk('public')->put($targetStoragePath, $fileBytes);
-                $size = File::size($sourcePath);
-                $mimeType = 'application/pdf';
-
-                Document::firstOrCreate(
-                    ['title' => $sample['title']],
-                    [
-                        'description' => $sample['description'],
-                        'file_path' => $targetStoragePath,
-                        'original_name' => $sample['filename'],
-                        'mime_type' => $mimeType,
-                        'size' => $size,
-                        'unit_id' => $createdUnits[$sample['unit_code']]->id ?? null,
-                        'uploaded_by' => $seededUsers['lead_auditor']->id,
-                    ]
-                );
-            }
-        }
     }
 }

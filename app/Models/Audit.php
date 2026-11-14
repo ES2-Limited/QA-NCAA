@@ -34,7 +34,12 @@ class Audit extends Model
 
     public function checklist()
     {
-        return $this->belongsTo(Checklist::class);
+        return $this->belongsTo(Process::class, 'checklist_id');
+    }
+
+    public function process()
+    {
+        return $this->belongsTo(Process::class, 'checklist_id');
     }
 
     public function leadAuditor()

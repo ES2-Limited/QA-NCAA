@@ -23,7 +23,10 @@
                 </flux:sidebar.group>
 
                 @hasanyrole('system_admin|lead_auditor')
-                    <flux:sidebar.group :heading="__('Quality Documents')" class="grid">
+                    <flux:sidebar.group :heading="__('Audit Operations')" class="grid">
+                        <flux:sidebar.item icon="arrow-path-rounded-square" :href="route('processes.index')" :current="request()->routeIs('processes.*')" wire:navigate>
+                            {{ __('Processes') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="document-text" :href="route('admin.documents')" :current="request()->routeIs('admin.documents')" wire:navigate>
                             {{ __('Document Library') }}
                         </flux:sidebar.item>

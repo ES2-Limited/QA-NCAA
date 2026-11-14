@@ -4,10 +4,21 @@ use App\Models\Document;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
+// Role-aware redirect for /admin
+Route::middleware(['auth'])->get('admin', function () {
+    if (auth()->user()->hasRole('system_admin')) {
+        return redirect()->route('admin.directorates');
+    }
+
+    if (auth()->user()->hasRole('lead_auditor')) {
+        return redirect()->route('admin.documents');
+    }
+
+    abort(403);
+});
+
 // Protected system admin routes
 Route::middleware(['auth', 'role:system_admin'])->group(function () {
-    Route::redirect('admin', 'admin/directorates');
-
     Route::livewire('admin/directorates', 'pages::admin.directorates')->name('admin.directorates');
     Route::livewire('admin/departments', 'pages::admin.departments')->name('admin.departments');
     Route::livewire('admin/units', 'pages::admin.units')->name('admin.units');

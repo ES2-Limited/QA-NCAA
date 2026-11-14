@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\AiService as AiServiceContract;
 use App\Services\AiServiceInterface;
 use App\Services\FakeAiService;
 use App\Services\GeminiAiService;
@@ -28,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
 
             return new GeminiAiService($apiKey, $model);
         });
+
+        $this->app->bind(AiServiceContract::class, FakeAiService::class);
     }
 
     /**
