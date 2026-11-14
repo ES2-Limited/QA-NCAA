@@ -8,43 +8,72 @@ class Audit extends Model
 {
     protected $fillable = [
         'reference_number',
+        'process_id',
         'title',
+        'scheduled_for',
         'type',
         'directorate_id',
         'checklist_id',
         'lead_auditor_id',
+        'reviewer_id',
+        'created_by',
         'location',
         'start_date',
         'end_date',
         'status',
+        'questions_snapshot',
         'scope',
         'executive_summary',
         'ai_executive_summary',
     ];
 
     protected $casts = [
+        'scheduled_for' => 'date',
         'start_date' => 'date',
         'end_date' => 'date',
+        'questions_snapshot' => 'array',
     ];
+
+    public function process()
+    {
+        return $this->belongsTo(Process::class, 'process_id')
+            ->withDefault(function () {
+                if ($this->checklist_id) {
+                    return Process::find($this->checklist_id);
+                }
+
+                return null;
+            });
+    }
+
+    public function checklist()
+    {
+        return $this->process();
+    }
 
     public function directorate()
     {
         return $this->belongsTo(Directorate::class);
     }
 
-    public function checklist()
-    {
-        return $this->belongsTo(Process::class, 'checklist_id');
-    }
-
-    public function process()
-    {
-        return $this->belongsTo(Process::class, 'checklist_id');
-    }
-
     public function leadAuditor()
     {
         return $this->belongsTo(User::class, 'lead_auditor_id');
+    }
+
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'reviewer_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function auditors()
+    {
+        return $this->belongsToMany(User::class, 'audit_user')->withTimestamps();
     }
 
     public function responses()

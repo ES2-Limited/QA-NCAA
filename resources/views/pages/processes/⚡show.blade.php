@@ -1,28 +1,133 @@
 <?php
 
+use App\Models\Audit;
 use App\Models\Process;
+use App\Models\User;
+use App\Notifications\AuditAssigned;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\Attributes\Title;
 
 new #[Title('Process Overview')] class extends Component {
-    public Process $process;
+    public ?Process $process = null;
+
+    // Schedule Audit Modal state
+    public bool $showScheduleModal = false;
+    public string $auditTitle = '';
+    public string $scheduledFor = '';
+    public ?string $reviewerId = '';
+    public array $assignedAuditorIds = [];
 
     public function mount($process)
     {
-        $this->process = Process::with([
-            'directorate',
-            'department',
-            'unit',
-            'creator',
-            'documents',
-            'questions',
-        ])->findOrFail($process);
+        $this->process = $process instanceof Process
+            ? $process->loadMissing([
+                'directorate',
+                'department',
+                'unit',
+                'creator',
+                'documents',
+                'questions',
+            ])
+            : Process::with([
+                'directorate',
+                'department',
+                'unit',
+                'creator',
+                'documents',
+                'questions',
+            ])->findOrFail($process);
+
+        $defaultScheduled = $this->process->type === 'unplanned'
+            ? now()->format('Y-m-d')
+            : ($this->process->next_due_at ? $this->process->next_due_at->format('Y-m-d') : now()->format('Y-m-d'));
+
+        $this->scheduledFor = $defaultScheduled;
+        $this->auditTitle = $this->process->name . ' — ' . Carbon::parse($defaultScheduled)->format('F Y');
+    }
+
+    public function openScheduleModal(bool $startNow = false)
+    {
+        $date = $startNow ? now()->format('Y-m-d') : ($this->process->next_due_at ? $this->process->next_due_at->format('Y-m-d') : now()->format('Y-m-d'));
+        $this->scheduledFor = $date;
+        $this->auditTitle = $this->process->name . ' — ' . Carbon::parse($date)->format('F Y');
+        $this->reviewerId = '';
+        $this->assignedAuditorIds = [];
+        $this->showScheduleModal = true;
+    }
+
+    public function scheduleAudit()
+    {
+        $this->validate([
+            'auditTitle' => 'required|string|max:255',
+            'scheduledFor' => 'required|date',
+            'reviewerId' => 'nullable|exists:users,id',
+            'assignedAuditorIds' => 'nullable|array',
+            'assignedAuditorIds.*' => 'exists:users,id',
+        ]);
+
+        $scheduledDate = Carbon::parse($this->scheduledFor);
+        $status = ($this->process->type === 'unplanned' && $scheduledDate->isToday()) ? 'in_progress' : 'scheduled';
+        $refNumber = 'AUD-' . strtoupper(Str::random(3)) . '-' . now()->format('YmdHis');
+
+        // Snapshot questions
+        $questionsSnapshot = $this->process->questions->map(function ($q) {
+            return [
+                'id' => $q->id,
+                'order' => $q->order,
+                'question' => $q->question,
+                'type' => $q->type,
+                'options' => $q->options,
+                'requirement_ref' => $q->requirement_ref,
+                'guidance' => $q->guidance,
+                'source' => $q->source,
+            ];
+        })->toArray();
+
+        $audit = Audit::create([
+            'reference_number' => $refNumber,
+            'process_id' => $this->process->id,
+            'checklist_id' => $this->process->id,
+            'title' => $this->auditTitle,
+            'scheduled_for' => $scheduledDate,
+            'type' => $this->process->type,
+            'directorate_id' => $this->process->directorate_id,
+            'lead_auditor_id' => auth()->id() ?? $this->process->created_by,
+            'reviewer_id' => $this->reviewerId ?: null,
+            'created_by' => auth()->id() ?? $this->process->created_by,
+            'location' => 'Designated Station',
+            'start_date' => $scheduledDate,
+            'status' => $status,
+            'questions_snapshot' => $questionsSnapshot,
+        ]);
+
+        if (! empty($this->assignedAuditorIds)) {
+            $audit->auditors()->sync($this->assignedAuditorIds);
+
+            // Notify each assigned field auditor
+            foreach ($audit->auditors as $auditor) {
+                $auditor->notify(new AuditAssigned($audit));
+            }
+        }
+
+        // Notify reviewer
+        if ($audit->reviewer) {
+            $audit->reviewer->notify(new AuditAssigned($audit));
+        }
+
+        $this->showScheduleModal = false;
+
+        return redirect()->route('audits.show', $audit->id)
+            ->with('message', 'Audit "' . $audit->title . '" scheduled successfully.');
     }
 
     public function with()
     {
         return [
             'process' => $this->process,
+            'reviewers' => User::role('reviewer')->orderBy('name')->get(),
+            'fieldAuditors' => User::role('field_auditor')->orderBy('name')->get(),
         ];
     }
 }; ?>
@@ -48,9 +153,19 @@ new #[Title('Process Overview')] class extends Component {
             <flux:button href="{{ route('processes.index') }}" variant="ghost" wire:navigate>
                 &larr; Back to List
             </flux:button>
-            <flux:button href="{{ route('processes.edit', $process->id) }}" variant="primary" icon="pencil-square" wire:navigate>
-                Edit Process
+            <flux:button href="{{ route('processes.edit', $process->id) }}" variant="ghost" icon="pencil-square" wire:navigate>
+                Edit
             </flux:button>
+
+            @if($process->type === 'unplanned')
+                <flux:button wire:click="openScheduleModal(true)" variant="primary" icon="play">
+                    Start Now
+                </flux:button>
+            @else
+                <flux:button wire:click="openScheduleModal(false)" variant="primary" icon="calendar-days">
+                    Schedule Audit
+                </flux:button>
+            @endif
         </div>
     </div>
 
@@ -188,4 +303,52 @@ new #[Title('Process Overview')] class extends Component {
             @endforelse
         </div>
     </div>
+
+    <!-- SCHEDULE AUDIT MODAL -->
+    <flux:modal wire:model="showScheduleModal" class="md:w-[32rem] space-y-4">
+        <div>
+            <flux:heading size="lg">
+                {{ $process->type === 'unplanned' ? 'Start Unplanned Audit' : 'Schedule Audit Run' }}
+            </flux:heading>
+            <flux:subheading>
+                Launch an execution run of "{{ $process->name }}". Questions will be snapshotted.
+            </flux:subheading>
+        </div>
+
+        <form wire:submit.prevent="scheduleAudit" class="space-y-4">
+            <flux:input wire:model="auditTitle" label="Audit Title *" required />
+
+            <flux:input wire:model="scheduledFor" type="date" label="Scheduled Date *" required />
+
+            <flux:select wire:model="reviewerId" label="Assign Quality Reviewer">
+                <flux:select.option value="">No reviewer selected</flux:select.option>
+                @foreach($reviewers as $rev)
+                    <flux:select.option value="{{ $rev->id }}">{{ $rev->name }} ({{ $rev->email }})</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <div>
+                <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                    Assign Field Auditors (Multi-select)
+                </label>
+                <div class="max-h-36 overflow-y-auto space-y-1.5 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50">
+                    @forelse($fieldAuditors as $auditor)
+                        <label class="flex items-center space-x-2 text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer">
+                            <input type="checkbox" wire:model="assignedAuditorIds" value="{{ $auditor->id }}" class="rounded text-emerald-600 focus:ring-emerald-500">
+                            <span>{{ $auditor->name }} &bull; <span class="text-zinc-500">{{ $auditor->email }}</span></span>
+                        </label>
+                    @empty
+                        <div class="text-xs text-zinc-500 p-2">No field auditors registered.</div>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button wire:click="$set('showScheduleModal', false)" variant="ghost">Cancel</flux:button>
+                <flux:button type="submit" variant="primary" icon="check">
+                    {{ $process->type === 'unplanned' ? 'Launch Audit' : 'Confirm Schedule' }}
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
 </div>

@@ -13,6 +13,7 @@ use App\Models\Finding;
 use App\Models\Process;
 use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\AuditAssigned;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
@@ -452,23 +453,84 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // 6. Audit Engagements
+        // 6. Audit Engagements (Prompt 5 Seeder Requirements)
+        // Audit 1: in_progress audit of "Ramp Safety Spot Check"
+        $rampSnapshot = $procRamp->questions->map(function ($q) {
+            return [
+                'id' => $q->id,
+                'order' => $q->order,
+                'question' => $q->question,
+                'type' => $q->type,
+                'options' => $q->options,
+                'requirement_ref' => $q->requirement_ref,
+                'guidance' => $q->guidance,
+                'source' => $q->source,
+            ];
+        })->toArray();
+
         $audit1 = Audit::firstOrCreate(
             ['reference_number' => 'AUD-2026-DSD-001'],
             [
-                'title' => 'Ramp Safety & Fuel Quality Surveillance Audit - Nnamdi Azikiwe Int\'l Airport',
-                'type' => 'surveillance',
-                'directorate_id' => $createdDirectorates['DOLG']->id,
+                'title' => 'Ramp Safety Spot Check — Active Ramp Surveillance',
+                'type' => 'unplanned',
+                'process_id' => $procRamp->id,
                 'checklist_id' => $procRamp->id,
+                'directorate_id' => $createdDirectorates['DOLG']->id,
                 'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
                 'location' => 'Abuja Airport (DNAA / ABV)',
                 'start_date' => now()->subDays(2),
+                'scheduled_for' => now()->subDays(2),
                 'status' => 'in_progress',
+                'questions_snapshot' => $rampSnapshot,
                 'scope' => 'Concourse B Apron, Hydrant Fueling Pit 4, Baggage Make-up Area, and GSE Maintenance Workshop.',
                 'executive_summary' => 'Routine surprise surveillance conducted jointly by NCAA DSD and Flight Safety inspectors.',
                 'ai_executive_summary' => "### Executive Audit Summary (NCAA Directorate of Special Duties)\n**Engagement:** Ramp Safety & Fuel Quality Surveillance Audit - Abuja\n**Audited Directorate/Station:** Directorate of Operations, Licensing and Training (DOLG)\n**Overall Quality Compliance Index:** 80%\n\n#### 1. Strategic Compliance Assessment\nThe DSD Internal Audit team concluded surveillance inspection at Abuja International Airport. Overall adherence meets basic NCAA criteria.\n\n#### 2. Summary of Findings\n- **Major Operational Findings:** 1 (GSE uncalibrated fuel hydrant static line)\n- **Minor Discrepancies:** 1 (FOD bin documentation delay)",
             ]
         );
+
+        $audit1->auditors()->syncWithoutDetaching([$seededUsers['field_auditor']->id]);
+
+        // Audit 2: Scheduled audit of "AMO Internal QA Audit" (next week, field_auditor + reviewer assigned, notifications created)
+        $amoSnapshot = $procAmo->questions->map(function ($q) {
+            return [
+                'id' => $q->id,
+                'order' => $q->order,
+                'question' => $q->question,
+                'type' => $q->type,
+                'options' => $q->options,
+                'requirement_ref' => $q->requirement_ref,
+                'guidance' => $q->guidance,
+                'source' => $q->source,
+            ];
+        })->toArray();
+
+        $audit2 = Audit::firstOrCreate(
+            ['reference_number' => 'AUD-2026-DSD-002'],
+            [
+                'title' => 'AMO Internal QA Audit — Next Week Routine Inspection',
+                'type' => 'routine',
+                'process_id' => $procAmo->id,
+                'checklist_id' => $procAmo->id,
+                'directorate_id' => $createdDirectorates['DAWS']->id,
+                'lead_auditor_id' => $seededUsers['lead_auditor']->id,
+                'reviewer_id' => $seededUsers['reviewer']->id,
+                'created_by' => $seededUsers['lead_auditor']->id,
+                'location' => 'Lagos MMA Maintenance Hangar 2',
+                'start_date' => now()->addWeek(),
+                'scheduled_for' => now()->addWeek(),
+                'status' => 'scheduled',
+                'questions_snapshot' => $amoSnapshot,
+                'scope' => 'Hangar Line Maintenance, Tool Calibration Store, Rotable Parts Bonded Stores, and Nig.CARs Part 6 compliance.',
+            ]
+        );
+
+        $audit2->auditors()->syncWithoutDetaching([$seededUsers['field_auditor']->id]);
+
+        // Create Notifications for Audit 2
+        $seededUsers['field_auditor']->notify(new AuditAssigned($audit2));
+        $seededUsers['reviewer']->notify(new AuditAssigned($audit2));
 
         foreach ($procRamp->questions as $it) {
             $status = ($it->order === 4) ? 'non_compliant' : 'compliant';

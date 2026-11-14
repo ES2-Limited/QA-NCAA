@@ -22,14 +22,19 @@
                     @endhasanyrole
                 </flux:sidebar.group>
 
-                @hasanyrole('system_admin|lead_auditor')
+                @hasanyrole('system_admin|lead_auditor|head_of_audit|director')
                     <flux:sidebar.group :heading="__('Audit Operations')" class="grid">
-                        <flux:sidebar.item icon="arrow-path-rounded-square" :href="route('processes.index')" :current="request()->routeIs('processes.*')" wire:navigate>
-                            {{ __('Processes') }}
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('audits.index')" :current="request()->routeIs('audits.*')" wire:navigate>
+                            {{ __('Audits') }}
                         </flux:sidebar.item>
-                        <flux:sidebar.item icon="document-text" :href="route('admin.documents')" :current="request()->routeIs('admin.documents')" wire:navigate>
-                            {{ __('Document Library') }}
-                        </flux:sidebar.item>
+                        @hasanyrole('system_admin|lead_auditor')
+                            <flux:sidebar.item icon="arrow-path-rounded-square" :href="route('processes.index')" :current="request()->routeIs('processes.*')" wire:navigate>
+                                {{ __('Processes') }}
+                            </flux:sidebar.item>
+                            <flux:sidebar.item icon="document-text" :href="route('admin.documents')" :current="request()->routeIs('admin.documents')" wire:navigate>
+                                {{ __('Document Library') }}
+                            </flux:sidebar.item>
+                        @endhasanyrole
                     </flux:sidebar.group>
                 @endhasanyrole
 
@@ -66,59 +71,63 @@
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
 
-        <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+        <flux:header class="w-full border-b border-zinc-200 dark:border-zinc-750 px-4 py-2 flex items-center justify-between bg-white dark:bg-zinc-800">
+            <div class="flex items-center space-x-2">
+                <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+                <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider hidden sm:inline">NCAA QA/IA Intelligence</span>
+            </div>
 
-            <flux:spacer />
+            <div class="flex items-center space-x-2">
+                <livewire:notification-bell />
 
-            <flux:dropdown position="top" align="end">
-                <flux:profile
-                    :initials="auth()->user()->initials()"
-                    icon-trailing="chevron-down"
-                />
+                <div class="lg:hidden">
+                    <flux:dropdown position="top" align="end">
+                        <flux:profile
+                            :initials="auth()->user()->initials()"
+                            icon-trailing="chevron-down"
+                        />
 
-                <flux:menu>
-                    <flux:menu.radio.group>
-                        <div class="p-0 text-sm font-normal">
-                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                                <flux:avatar
-                                    :name="auth()->user()->name"
-                                    :initials="auth()->user()->initials()"
-                                />
+                        <flux:menu>
+                            <div class="p-0 text-sm font-normal">
+                                <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                    <flux:avatar
+                                        :name="auth()->user()->name"
+                                        :initials="auth()->user()->initials()"
+                                    />
 
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                                    <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
+                                    <div class="grid flex-1 text-start text-sm leading-tight">
+                                        <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
+                                        <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                            <flux:menu.separator />
 
-                    <flux:menu.radio.group>
-                        <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                            {{ __('Settings') }}
-                        </flux:menu.item>
-                    </flux:menu.radio.group>
+                            <flux:menu.radio.group>
+                                <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
+                                    {{ __('Settings') }}
+                                </flux:menu.item>
+                            </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                            <flux:menu.separator />
 
-                    <form method="POST" action="{{ route('logout') }}" class="w-full">
-                        @csrf
-                        <flux:menu.item
-                            as="button"
-                            type="submit"
-                            icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer"
-                            data-test="logout-button"
-                        >
-                            {{ __('Log out') }}
-                        </flux:menu.item>
-                    </form>
-                </flux:menu>
-            </flux:dropdown>
+                            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                                @csrf
+                                <flux:menu.item
+                                    as="button"
+                                    type="submit"
+                                    icon="arrow-right-start-on-rectangle"
+                                    class="w-full cursor-pointer"
+                                    data-test="logout-button"
+                                >
+                                    {{ __('Log out') }}
+                                </flux:menu.item>
+                            </form>
+                        </flux:menu>
+                    </flux:dropdown>
+                </div>
+            </div>
         </flux:header>
 
         {{ $slot }}
