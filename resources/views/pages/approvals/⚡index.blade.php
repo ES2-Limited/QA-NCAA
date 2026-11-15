@@ -17,7 +17,7 @@ new #[Title('Executive Approvals')] class extends Component {
         $query = Audit::with(['process.unit', 'directorate', 'leadAuditor', 'findings', 'certificate'])
             ->latest('id');
 
-        if (! $user->hasRole('system_admin')) {
+        if (! $user->can('settings.manage')) {
             // Find which steps user is eligible to act on or view
             $userActionStatuses = [];
             foreach ($steps as $st) {
@@ -39,8 +39,8 @@ new #[Title('Executive Approvals')] class extends Component {
         return [
             'audits' => $query->paginate(10),
             'steps' => $steps,
-            'isDirector' => $user->hasRole('director'),
-            'isHead' => $user->hasRole('head_of_audit'),
+            'isDirector' => $user->can('approvals.final'),
+            'isHead' => $user->can('approvals.endorse'),
         ];
     }
 }; ?>

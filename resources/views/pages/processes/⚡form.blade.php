@@ -24,6 +24,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
 
     // Step 1: Details
     public $name = '';
+    public $category = '';
     public $description = '';
     public $directorate_id = '';
     public $department_id = '';
@@ -56,6 +57,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
         if ($process) {
             $this->process = Process::with(['documents', 'questions'])->findOrFail($process);
             $this->name = $this->process->name;
+            $this->category = $this->process->category ?? '';
             $this->description = $this->process->description ?? '';
             $this->directorate_id = $this->process->directorate_id ?? '';
             $this->department_id = $this->process->department_id ?? '';
@@ -270,6 +272,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
         // Global validation
         $this->validate([
             'name' => 'required|string|max:255',
+            'category' => 'nullable|string|max:100',
             'directorate_id' => 'required|exists:directorates,id',
             'department_id' => 'nullable|exists:departments,id',
             'unit_id' => 'nullable|exists:units,id',
@@ -296,6 +299,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
 
         $data = [
             'name' => $this->name,
+            'category' => $this->category ?: null,
             'description' => $this->description,
             'directorate_id' => $this->directorate_id,
             'department_id' => $this->department_id ?: null,
@@ -357,6 +361,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
             'departments' => $departments,
             'units' => $units,
             'availableDocuments' => $docsQuery->get(),
+            'processCategories' => \App\Models\Lookup::forType('process_category'),
         ];
     }
 }; ?>
@@ -409,6 +414,15 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
 
             <div class="space-y-4">
                 <flux:input wire:model="name" label="Process Name *" placeholder="e.g. Approved Maintenance Organization (AMO) Surveillance Audit" required />
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <flux:select wire:model="category" label="Process Category">
+                        <flux:select.option value="">No Category / General</flux:select.option>
+                        @foreach($processCategories as $cat)
+                            <flux:select.option value="{{ $cat->key ?: $cat->name }}">{{ $cat->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
 
                 <flux:textarea wire:model="description" label="Scope & Description" rows="3" placeholder="Outline the statutory purpose, objective, and facility scope..." />
 

@@ -35,24 +35,11 @@ class DatabaseSeeder extends Seeder
         // Reset cached roles and permissions
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 0. Seed system business settings & workflow steps
+        // 0. Seed system business settings, workflow steps, lookups & roles/permissions
         $this->call(SettingSeeder::class);
         $this->call(WorkflowStepSeeder::class);
-
-        // 1. Spatie RBAC Roles (Exactly the 7 requested roles)
-        $roles = [
-            'system_admin',
-            'lead_auditor',
-            'field_auditor',
-            'reviewer',
-            'head_of_audit',
-            'director',
-            'auditee',
-        ];
-
-        foreach ($roles as $roleName) {
-            Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-        }
+        $this->call(LookupSeeder::class);
+        $this->call(RolePermissionSeeder::class);
 
         // 2. NCAA Organizational Hierarchy: Directorates -> Departments -> Units
         $directoratesData = [

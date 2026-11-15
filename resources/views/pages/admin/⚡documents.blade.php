@@ -19,6 +19,7 @@ new #[Title('NCAA Document Library')] class extends Component {
 
     // Upload & Edit Form State
     public $title = '';
+    public $type = '';
     public $description = '';
     public $formDirectorate = '';
     public $formDepartment = '';
@@ -52,7 +53,7 @@ new #[Title('NCAA Document Library')] class extends Component {
 
     public function openUploadModal()
     {
-        $this->reset(['title', 'description', 'formDirectorate', 'formDepartment', 'unit_id', 'file', 'editingId']);
+        $this->reset(['title', 'type', 'description', 'formDirectorate', 'formDepartment', 'unit_id', 'file', 'editingId']);
         $this->showUploadModal = true;
     }
 
@@ -61,6 +62,7 @@ new #[Title('NCAA Document Library')] class extends Component {
         $doc = Document::with('unit.department.directorate')->findOrFail($id);
         $this->editingId = $doc->id;
         $this->title = $doc->title;
+        $this->type = $doc->type ?? '';
         $this->description = $doc->description;
         $this->unit_id = $doc->unit_id ?? '';
 
@@ -83,6 +85,7 @@ new #[Title('NCAA Document Library')] class extends Component {
 
         $this->validate([
             'title' => 'required|string|max:255',
+            'type' => 'nullable|string|max:100',
             'description' => 'nullable|string',
             'unit_id' => 'nullable|exists:units,id',
             'file' => "required|file|mimes:{$allowedMimes}|max:{$maxKb}",
@@ -100,6 +103,7 @@ new #[Title('NCAA Document Library')] class extends Component {
 
         Document::create([
             'title' => $this->title,
+            'type' => $this->type ?: null,
             'description' => $this->description,
             'file_path' => $path,
             'original_name' => $originalName,
@@ -110,7 +114,7 @@ new #[Title('NCAA Document Library')] class extends Component {
         ]);
 
         $this->showUploadModal = false;
-        $this->reset(['title', 'description', 'formDirectorate', 'formDepartment', 'unit_id', 'file']);
+        $this->reset(['title', 'type', 'description', 'formDirectorate', 'formDepartment', 'unit_id', 'file']);
         session()->flash('message', 'Document uploaded successfully to NCAA Library.');
     }
 
@@ -118,6 +122,7 @@ new #[Title('NCAA Document Library')] class extends Component {
     {
         $this->validate([
             'title' => 'required|string|max:255',
+            'type' => 'nullable|string|max:100',
             'description' => 'nullable|string',
             'unit_id' => 'nullable|exists:units,id',
         ]);
@@ -125,12 +130,13 @@ new #[Title('NCAA Document Library')] class extends Component {
         $doc = Document::findOrFail($this->editingId);
         $doc->update([
             'title' => $this->title,
+            'type' => $this->type ?: null,
             'description' => $this->description,
             'unit_id' => $this->unit_id ?: null,
         ]);
 
         $this->showEditModal = false;
-        $this->reset(['title', 'description', 'formDirectorate', 'formDepartment', 'unit_id', 'editingId']);
+        $this->reset(['title', 'type', 'description', 'formDirectorate', 'formDepartment', 'unit_id', 'editingId']);
         session()->flash('message', 'Document metadata updated.');
     }
 
@@ -199,6 +205,7 @@ new #[Title('NCAA Document Library')] class extends Component {
             'filterUnits' => $filterUnits,
             'formDepartments' => $formDepartments,
             'formUnits' => $formUnits,
+            'documentTypes' => \App\Models\Lookup::forType('document_type'),
         ];
     }
 }; ?>
@@ -301,6 +308,7 @@ new #[Title('NCAA Document Library')] class extends Component {
                 <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-semibold uppercase text-zinc-500">
                     <tr>
                         <th class="px-4 py-3">Document Title</th>
+                        <th class="px-4 py-3">Type</th>
                         <th class="px-4 py-3">Assigned Unit / Dept</th>
                         <th class="px-4 py-3">Uploaded By</th>
                         <th class="px-4 py-3">Size</th>
@@ -319,6 +327,13 @@ new #[Title('NCAA Document Library')] class extends Component {
                                     <span>{{ $doc->title }}</span>
                                 </div>
                                 <div class="text-xs text-zinc-500 mt-0.5 truncate max-w-sm">{{ $doc->original_name }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-xs">
+                                @if($doc->type)
+                                    <flux:badge size="sm" color="zinc">{{ ucwords(str_replace('_', ' ', $doc->type)) }}</flux:badge>
+                                @else
+                                    <span class="text-zinc-400">—</span>
+                                @endif
                             </td>
                             <td class="px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300">
                                 @if($doc->unit)
@@ -370,6 +385,14 @@ new #[Title('NCAA Document Library')] class extends Component {
 
             <form wire:submit="uploadDocument" class="space-y-4">
                 <flux:input wire:model="title" label="Document Title" placeholder="e.g. Flight Safety Inspection Guidelines 2026" required />
+
+                <flux:select wire:model="type" label="Document Type">
+                    <flux:select.option value="">Select Document Type</flux:select.option>
+                    @foreach($documentTypes as $dt)
+                        <flux:select.option value="{{ $dt->key ?: $dt->name }}">{{ $dt->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <flux:textarea wire:model="description" label="Summary / Scope" rows="2" placeholder="Brief outline of regulation or manual contents..." />
 
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl space-y-3 border border-zinc-200 dark:border-zinc-700">
@@ -419,6 +442,14 @@ new #[Title('NCAA Document Library')] class extends Component {
 
             <form wire:submit="updateDocument" class="space-y-4">
                 <flux:input wire:model="title" label="Document Title" required />
+
+                <flux:select wire:model="type" label="Document Type">
+                    <flux:select.option value="">Select Document Type</flux:select.option>
+                    @foreach($documentTypes as $dt)
+                        <flux:select.option value="{{ $dt->key ?: $dt->name }}">{{ $dt->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <flux:textarea wire:model="description" label="Summary / Scope" rows="2" />
 
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl space-y-3 border border-zinc-200 dark:border-zinc-700">

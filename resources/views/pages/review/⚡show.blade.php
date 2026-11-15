@@ -47,7 +47,7 @@ new #[Title('Audit Review & NCR Raising')] class extends Component {
         ])->findOrFail($id);
 
         // Access control: assigned reviewer only or system admin
-        if ($this->audit->reviewer_id !== auth()->id() && ! auth()->user()->hasRole('system_admin')) {
+        if ($this->audit->reviewer_id !== auth()->id() && ! auth()->user()->can('settings.manage')) {
             abort(403, 'Unauthorized. You are not the assigned reviewer for this audit.');
         }
 

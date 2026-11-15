@@ -41,7 +41,7 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
 
         // Security check: field auditor can only open audits they are assigned to
         $isAssigned = $this->audit->auditors->contains(auth()->id());
-        if (! $isAssigned && ! auth()->user()->hasRole('system_admin')) {
+        if (! $isAssigned && ! auth()->user()->can('settings.manage')) {
             abort(403, 'Unauthorized. You are not assigned to this audit engagement.');
         }
 

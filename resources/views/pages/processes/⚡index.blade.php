@@ -8,6 +8,7 @@ use Livewire\Attributes\Title;
 new #[Title('Processes & Checklists')] class extends Component {
     public $search = '';
     public $filterType = '';
+    public $filterCategory = '';
     public $filterDirectorate = '';
 
     public function deleteProcess($id)
@@ -34,6 +35,10 @@ new #[Title('Processes & Checklists')] class extends Component {
             $query->where('type', $this->filterType);
         }
 
+        if (!empty($this->filterCategory)) {
+            $query->where('category', $this->filterCategory);
+        }
+
         if (!empty($this->filterDirectorate)) {
             $query->where('directorate_id', $this->filterDirectorate);
         }
@@ -41,6 +46,7 @@ new #[Title('Processes & Checklists')] class extends Component {
         return [
             'processes' => $query->get(),
             'directorates' => Directorate::orderBy('name')->get(),
+            'categories' => \App\Models\Lookup::forType('process_category'),
         ];
     }
 }; ?>
@@ -64,13 +70,20 @@ new #[Title('Processes & Checklists')] class extends Component {
     @endif
 
     <!-- Search & Filters -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
         <flux:input wire:model.live.debounce.300ms="search" placeholder="Search processes by name..." icon="magnifying-glass" />
 
         <flux:select wire:model.live="filterType" placeholder="All Types">
             <flux:select.option value="">All Types</flux:select.option>
             <flux:select.option value="routine">Routine</flux:select.option>
             <flux:select.option value="unplanned">Unplanned / Spot Check</flux:select.option>
+        </flux:select>
+
+        <flux:select wire:model.live="filterCategory" placeholder="All Categories">
+            <flux:select.option value="">All Categories</flux:select.option>
+            @foreach($categories as $cat)
+                <flux:select.option value="{{ $cat->key ?: $cat->name }}">{{ $cat->name }}</flux:select.option>
+            @endforeach
         </flux:select>
 
         <flux:select wire:model.live="filterDirectorate" placeholder="All Directorates">
@@ -105,7 +118,10 @@ new #[Title('Processes & Checklists')] class extends Component {
                         <div class="text-xs text-zinc-500 line-clamp-2">{{ $proc->description }}</div>
                     @endif
 
-                    <div class="flex items-center gap-2 text-xs">
+                    <div class="flex items-center gap-2 text-xs flex-wrap">
+                        @if($proc->category)
+                            <flux:badge size="sm" color="zinc">{{ ucwords(str_replace('_', ' ', $proc->category)) }}</flux:badge>
+                        @endif
                         <flux:badge size="sm" :color="$proc->type === 'routine' ? 'blue' : 'amber'">
                             {{ ucfirst($proc->type) }}
                         </flux:badge>
@@ -138,6 +154,7 @@ new #[Title('Processes & Checklists')] class extends Component {
             <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-semibold uppercase text-zinc-500">
                 <tr>
                     <th class="px-4 py-3">Process Name</th>
+                    <th class="px-4 py-3">Category</th>
                     <th class="px-4 py-3">Hierarchy (Dir/Dept/Unit)</th>
                     <th class="px-4 py-3">Type</th>
                     <th class="px-4 py-3">Frequency</th>
@@ -156,6 +173,13 @@ new #[Title('Processes & Checklists')] class extends Component {
                             </a>
                             @if($proc->description)
                                 <div class="text-xs text-zinc-500 truncate max-w-xs mt-0.5">{{ $proc->description }}</div>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-xs">
+                            @if($proc->category)
+                                <flux:badge size="sm" color="zinc">{{ ucwords(str_replace('_', ' ', $proc->category)) }}</flux:badge>
+                            @else
+                                <span class="text-zinc-400">—</span>
                             @endif
                         </td>
                         <td class="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">

@@ -15,45 +15,49 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
-                    @hasrole('field_auditor')
+                    @can('audits.conduct')
                         <flux:sidebar.item icon="clipboard-document-check" :href="route('field.index')" :current="request()->routeIs('field.*')" wire:navigate>
                             {{ __('Field Audits') }}
                         </flux:sidebar.item>
-                    @endhasrole
-                    @hasrole('reviewer')
+                    @endcan
+                    @can('audits.review')
                         <flux:sidebar.item icon="magnifying-glass-circle" :href="route('review.index')" :current="request()->routeIs('review.*')" wire:navigate>
                             {{ __('Review Queue') }}
                         </flux:sidebar.item>
-                    @endhasrole
-                    @hasanyrole('head_of_audit|director')
+                    @endcan
+                    @canany(['approvals.endorse', 'approvals.final'])
                         <flux:sidebar.item icon="check-badge" :href="route('approvals.index')" :current="request()->routeIs('approvals.*')" wire:navigate>
                             {{ __('Approvals') }}
                         </flux:sidebar.item>
-                    @endhasanyrole
-                    @hasanyrole('auditee|lead_auditor|reviewer|head_of_audit|director|system_admin')
+                    @endcanany
+                    @can('ncrs.view')
                         <flux:sidebar.item icon="exclamation-triangle" :href="route('ncrs.index')" :current="request()->routeIs('ncrs.*')" wire:navigate>
                             {{ __('NCRs & CAPs') }}
                         </flux:sidebar.item>
-                    @endhasanyrole
+                    @endcan
                 </flux:sidebar.group>
 
-                @hasanyrole('system_admin|lead_auditor|head_of_audit|director')
+                @canany(['audits.view', 'processes.view', 'documents.view'])
                     <flux:sidebar.group :heading="__('Audit Operations')" class="grid">
-                        <flux:sidebar.item icon="clipboard-document-list" :href="route('audits.index')" :current="request()->routeIs('audits.*')" wire:navigate>
-                            {{ __('Audits') }}
-                        </flux:sidebar.item>
-                        @hasanyrole('system_admin|lead_auditor')
+                        @can('audits.view')
+                            <flux:sidebar.item icon="clipboard-document-list" :href="route('audits.index')" :current="request()->routeIs('audits.*')" wire:navigate>
+                                {{ __('Audits') }}
+                            </flux:sidebar.item>
+                        @endcan
+                        @can('processes.view')
                             <flux:sidebar.item icon="arrow-path-rounded-square" :href="route('processes.index')" :current="request()->routeIs('processes.*')" wire:navigate>
                                 {{ __('Processes') }}
                             </flux:sidebar.item>
+                        @endcan
+                        @can('documents.view')
                             <flux:sidebar.item icon="document-text" :href="route('admin.documents')" :current="request()->routeIs('admin.documents')" wire:navigate>
                                 {{ __('Document Library') }}
                             </flux:sidebar.item>
-                        @endhasanyrole
+                        @endcan
                     </flux:sidebar.group>
-                @endhasanyrole
+                @endcanany
 
-                @hasrole('system_admin')
+                @canany(['settings.manage', 'users.manage', 'roles.manage'])
                     <flux:sidebar.group :heading="__('Administration')" class="grid">
                         <flux:sidebar.item icon="building-office-2" :href="route('admin.directorates')" :current="request()->routeIs('admin.directorates')" wire:navigate>
                             {{ __('Directorates') }}
@@ -64,8 +68,14 @@
                         <flux:sidebar.item icon="squares-2x2" :href="route('admin.units')" :current="request()->routeIs('admin.units')" wire:navigate>
                             {{ __('Units') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="list-bullet" :href="route('admin.lookups')" :current="request()->routeIs('admin.lookups')" wire:navigate>
+                            {{ __('Lookup Lists') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
                             {{ __('User Accounts') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="shield-check" :href="route('admin.roles')" :current="request()->routeIs('admin.roles')" wire:navigate>
+                            {{ __('Roles & Permissions') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="cog-6-tooth" :href="route('admin.settings')" :current="request()->routeIs('admin.settings')" wire:navigate>
                             {{ __('System Settings') }}
@@ -74,7 +84,7 @@
                             {{ __('Approval Workflow') }}
                         </flux:sidebar.item>
                     </flux:sidebar.group>
-                @endhasrole
+                @endcanany
             </flux:sidebar.nav>
 
             <flux:spacer />

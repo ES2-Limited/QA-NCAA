@@ -362,9 +362,7 @@ new #[Title('Audit Approval Decision')] class extends Component {
                         <div class="text-zinc-700 dark:text-zinc-300">{{ $f->description ?: $f->condition }}</div>
                     </div>
                     <div>
-                        <flux:badge size="sm" :color="$f->status === 'closed' ? 'zinc' : ($f->status === 'cap_accepted' ? 'emerald' : 'rose')">
-                            {{ ucfirst($f->status) }}
-                        </flux:badge>
+                        <x-status-badge :status="$f->status" type="ncr_status" />
                     </div>
                 </div>
             @empty

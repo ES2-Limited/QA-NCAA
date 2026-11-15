@@ -50,7 +50,7 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
 
     public function mount(): void
     {
-        if (! auth()->user()?->hasRole('system_admin')) {
+        if (! auth()->user()?->can('settings.manage')) {
             abort(403, 'Unauthorized.');
         }
 

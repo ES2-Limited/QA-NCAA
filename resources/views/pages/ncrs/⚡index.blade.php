@@ -40,8 +40,8 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
         $query = Finding::with(['audit.directorate', 'unit.department', 'cap', 'raisedBy'])
             ->latest('id');
 
-        // Role scoping: role auditee sees NCRs for their assigned unit
-        if ($user->hasRole('auditee')) {
+        // Scoping: users with caps.submit without higher admin/audit permissions see NCRs for their assigned unit
+        if ($user->can('caps.submit') && ! $user->can('audits.schedule') && ! $user->can('settings.manage') && ! $user->can('ncrs.raise')) {
             $query->where('assigned_unit_id', $user->unit_id);
         }
 
@@ -104,14 +104,6 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
             @forelse($ncrs as $ncr)
                 @php
                     $isOverdue = $ncr->isOverdue();
-                    $badgeColor = match ($ncr->status) {
-                        'open' => 'rose',
-                        'cap_submitted' => 'cyan',
-                        'cap_accepted' => 'emerald',
-                        'cap_rejected' => 'amber',
-                        'closed' => 'zinc',
-                        default => 'zinc',
-                    };
                 @endphp
                 <div class="p-4 space-y-3 hover:bg-zinc-50/80 dark:hover:bg-zinc-750 transition cursor-pointer" onclick="window.location='{{ route('ncrs.show', $ncr->id) }}'">
                     <div class="flex items-start justify-between gap-2">
@@ -128,9 +120,7 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
                                 {{ $ncr->audit->title }}
                             </div>
                         </div>
-                        <flux:badge size="sm" :color="$badgeColor">
-                            {{ ucwords(str_replace('_', ' ', $ncr->status)) }}
-                        </flux:badge>
+                        <x-status-badge :status="$ncr->status" type="ncr_status" />
                     </div>
 
                     <div class="text-xs text-zinc-500 line-clamp-2">
@@ -222,19 +212,7 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
                                 @endif
                             </td>
                             <td class="py-3.5 px-4">
-                                @php
-                                    $badgeColor = match ($ncr->status) {
-                                        'open' => 'rose',
-                                        'cap_submitted' => 'cyan',
-                                        'cap_accepted' => 'emerald',
-                                        'cap_rejected' => 'amber',
-                                        'closed' => 'zinc',
-                                        default => 'zinc',
-                                    };
-                                @endphp
-                                <flux:badge size="sm" :color="$badgeColor">
-                                    {{ ucwords(str_replace('_', ' ', $ncr->status)) }}
-                                </flux:badge>
+                                <x-status-badge :status="$ncr->status" type="ncr_status" />
                             </td>
                             <td class="py-3.5 px-4 text-right" onclick="event.stopPropagation()">
                                 <flux:button href="{{ route('ncrs.show', $ncr->id) }}" size="xs" variant="primary" icon="document-text" wire:navigate>

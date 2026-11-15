@@ -16,7 +16,7 @@ class AuditPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director', 'field_auditor', 'reviewer']);
+        return $user->can('audits.view');
     }
 
     /**
@@ -24,23 +24,28 @@ class AuditPolicy
      */
     public function view(User $user, Audit $audit): bool
     {
-        // System admin, lead auditor, head of audit, director can view all audits
-        if ($user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director'])) {
-            return true;
-        }
-
-        // Field auditor: must be assigned as lead auditor or team auditor
-        if ($user->hasRole('field_auditor')) {
-            if ($audit->lead_auditor_id === $user->id) {
+        // Users with general audits.view (system_admin, lead_auditor, head_of_audit, director)
+        if ($user->can('audits.view')) {
+            // If the user also has conduct/review restrictions, check assignment if they don't have higher permissions
+            if ($user->can('audits.schedule') || $user->can('approvals.endorse') || $user->can('approvals.final') || $user->can('settings.manage')) {
                 return true;
             }
 
-            return $audit->auditors()->where('users.id', $user->id)->exists();
-        }
+            // Reviewer: must be assigned reviewer if they only have audits.review
+            if ($user->can('audits.review') && $audit->reviewer_id === $user->id) {
+                return true;
+            }
 
-        // Reviewer: must be assigned reviewer
-        if ($user->hasRole('reviewer')) {
-            return $audit->reviewer_id === $user->id;
+            // Field auditor: must be assigned as lead auditor or team auditor
+            if ($user->can('audits.conduct')) {
+                if ($audit->lead_auditor_id === $user->id) {
+                    return true;
+                }
+
+                return $audit->auditors()->where('users.id', $user->id)->exists();
+            }
+
+            return true;
         }
 
         return false;
@@ -51,11 +56,11 @@ class AuditPolicy
      */
     public function conduct(User $user, Audit $audit): bool
     {
-        if ($user->hasRole('system_admin')) {
+        if ($user->can('settings.manage')) {
             return true;
         }
 
-        if (! $user->hasRole('field_auditor')) {
+        if (! $user->can('audits.conduct')) {
             return false;
         }
 
@@ -71,11 +76,11 @@ class AuditPolicy
      */
     public function review(User $user, Audit $audit): bool
     {
-        if ($user->hasRole('system_admin')) {
+        if ($user->can('settings.manage')) {
             return true;
         }
 
-        if (! $user->hasRole('reviewer')) {
+        if (! $user->can('audits.review')) {
             return false;
         }
 
@@ -87,7 +92,7 @@ class AuditPolicy
      */
     public function approve(User $user, Audit $audit): bool
     {
-        if ($user->hasRole('system_admin')) {
+        if ($user->can('settings.manage')) {
             return true;
         }
 
@@ -100,15 +105,15 @@ class AuditPolicy
             }
         }
 
-        return $user->hasAnyRole(['head_of_audit', 'director', 'reviewer']);
+        return $user->can('approvals.endorse') || $user->can('approvals.final') || $user->can('audits.review');
     }
 
     /**
-     * Determine whether the user can create audits.
+     * Determine whether the user can create/schedule audits.
      */
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor']);
+        return $user->can('audits.schedule');
     }
 
     /**
@@ -116,7 +121,7 @@ class AuditPolicy
      */
     public function update(User $user, Audit $audit): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor']);
+        return $user->can('audits.update') || $user->can('audits.schedule');
     }
 
     /**
@@ -124,6 +129,6 @@ class AuditPolicy
      */
     public function delete(User $user, Audit $audit): bool
     {
-        return $user->hasRole('system_admin');
+        return $user->can('audits.delete');
     }
 }

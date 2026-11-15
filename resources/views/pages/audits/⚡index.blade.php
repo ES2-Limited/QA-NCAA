@@ -113,18 +113,6 @@ new #[Title('Quality Audits Registry')] class extends Component {
         <!-- Mobile Stacked Cards (< md) -->
         <div class="block md:hidden divide-y divide-zinc-200 dark:divide-zinc-700">
             @forelse($audits as $audit)
-                @php
-                    $badgeColor = match ($audit->status) {
-                        'scheduled' => 'zinc',
-                        'in_progress' => 'amber',
-                        'submitted' => 'cyan',
-                        'reviewed' => 'blue',
-                        'head_approved' => 'indigo',
-                        'director_approved' => 'emerald',
-                        'returned' => 'rose',
-                        default => 'zinc',
-                    };
-                @endphp
                 <div class="p-4 space-y-3 hover:bg-zinc-50/80 dark:hover:bg-zinc-750 transition cursor-pointer" onclick="window.location='{{ route('audits.show', $audit->id) }}'">
                     <div class="flex items-start justify-between gap-2">
                         <div>
@@ -135,9 +123,7 @@ new #[Title('Quality Audits Registry')] class extends Component {
                                 {{ $audit->reference_number }}
                             </div>
                         </div>
-                        <flux:badge size="sm" :color="$badgeColor">
-                            {{ ucwords(str_replace('_', ' ', $audit->status)) }}
-                        </flux:badge>
+                        <x-status-badge :status="$audit->status" type="audit_status" />
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-700/50">
@@ -213,21 +199,7 @@ new #[Title('Quality Audits Registry')] class extends Component {
                                 </div>
                             </td>
                             <td class="py-3.5 px-4">
-                                @php
-                                    $badgeColor = match ($audit->status) {
-                                        'scheduled' => 'zinc',
-                                        'in_progress' => 'amber',
-                                        'submitted' => 'cyan',
-                                        'reviewed' => 'blue',
-                                        'head_approved' => 'indigo',
-                                        'director_approved' => 'emerald',
-                                        'returned' => 'rose',
-                                        default => 'zinc',
-                                    };
-                                @endphp
-                                <flux:badge size="sm" :color="$badgeColor">
-                                    {{ ucwords(str_replace('_', ' ', $audit->status)) }}
-                                </flux:badge>
+                                <x-status-badge :status="$audit->status" type="audit_status" />
                             </td>
                             <td class="py-3.5 px-4 text-right" onclick="event.stopPropagation()">
                                 <flux:button href="{{ route('audits.show', $audit->id) }}" size="xs" variant="ghost" icon="eye" wire:navigate>

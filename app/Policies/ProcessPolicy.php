@@ -12,26 +12,26 @@ class ProcessPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director']);
+        return $user->can('processes.view');
     }
 
     public function view(User $user, Process $process): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director']);
+        return $user->can('processes.view');
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor']);
+        return $user->can('processes.create');
     }
 
     public function update(User $user, Process $process): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor']);
+        return $user->can('processes.edit');
     }
 
     public function delete(User $user, Process $process): bool
     {
-        return $user->hasRole('system_admin');
+        return $user->can('processes.delete');
     }
 }

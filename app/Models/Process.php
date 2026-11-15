@@ -12,6 +12,7 @@ class Process extends Model
     protected $fillable = [
         'name',
         'description',
+        'category',
         'directorate_id',
         'department_id',
         'unit_id',

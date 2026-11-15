@@ -23,7 +23,7 @@ new #[Title('Approval Workflow Configuration — NCAA Admin')] class extends Com
 
     public function mount(): void
     {
-        if (! auth()->user()?->hasRole('system_admin')) {
+        if (! auth()->user()?->can('workflow.manage') && ! auth()->user()?->can('settings.manage')) {
             abort(403, 'Unauthorized.');
         }
 

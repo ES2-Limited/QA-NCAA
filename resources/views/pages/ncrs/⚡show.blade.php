@@ -165,8 +165,8 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
     public function with()
     {
         $user = auth()->user();
-        $canReview = $user->hasRole('reviewer') || $user->hasRole('lead_auditor') || $user->hasRole('system_admin');
-        $canSubmitCap = $user->hasRole('auditee') || $user->hasRole('system_admin');
+        $canReview = $user->can('caps.review') || $user->can('settings.manage');
+        $canSubmitCap = $user->can('caps.submit') || $user->can('settings.manage');
 
         return [
             'canReview' => $canReview,
@@ -189,9 +189,7 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
                 <flux:badge size="sm" :color="$ncr->level == 1 ? 'rose' : 'amber'">
                     Level {{ $ncr->level }} Non-Conformance
                 </flux:badge>
-                <flux:badge size="sm" :color="$ncr->status === 'closed' ? 'zinc' : ($ncr->status === 'cap_accepted' ? 'emerald' : 'rose')">
-                    {{ ucwords(str_replace('_', ' ', $ncr->status)) }}
-                </flux:badge>
+                <x-status-badge :status="$ncr->status" type="ncr_status" />
             </div>
         </div>
 

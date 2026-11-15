@@ -15,7 +15,7 @@ class FindingPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director', 'reviewer', 'auditee', 'field_auditor']);
+        return $user->can('ncrs.view');
     }
 
     /**
@@ -23,18 +23,22 @@ class FindingPolicy
      */
     public function view(User $user, Finding $finding): bool
     {
-        // System admin, lead auditor, head of audit, director can view all NCRs
-        if ($user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director'])) {
+        if (! $user->can('ncrs.view')) {
+            return false;
+        }
+
+        // Broad privileged permissions (lead auditor, director, head of audit, system admin)
+        if ($user->can('audits.schedule') || $user->can('approvals.endorse') || $user->can('approvals.final') || $user->can('settings.manage')) {
             return true;
         }
 
         // Reviewer assigned to the audit can view
-        if ($user->hasRole('reviewer') && $finding->audit?->reviewer_id === $user->id) {
+        if ($user->can('audits.review') && $finding->audit?->reviewer_id === $user->id) {
             return true;
         }
 
         // Field auditor assigned to the audit can view
-        if ($user->hasRole('field_auditor')) {
+        if ($user->can('audits.conduct')) {
             if ($finding->audit?->lead_auditor_id === $user->id) {
                 return true;
             }
@@ -44,7 +48,7 @@ class FindingPolicy
         }
 
         // Auditee: must belong to the same Unit or Directorate as the NCR or Audit
-        if ($user->hasRole('auditee')) {
+        if ($user->can('caps.submit')) {
             // Check direct unit match
             if ($finding->assigned_unit_id && $user->unit_id === $finding->assigned_unit_id) {
                 return true;
@@ -63,7 +67,7 @@ class FindingPolicy
             return false;
         }
 
-        return false;
+        return true;
     }
 
     /**
@@ -71,11 +75,11 @@ class FindingPolicy
      */
     public function submitCap(User $user, Finding $finding): bool
     {
-        if ($user->hasRole('system_admin')) {
+        if ($user->can('settings.manage')) {
             return true;
         }
 
-        if (! $user->hasRole('auditee')) {
+        if (! $user->can('caps.submit')) {
             return false;
         }
 
@@ -88,7 +92,7 @@ class FindingPolicy
      */
     public function reviewCap(User $user, Finding $finding): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'reviewer']);
+        return $user->can('caps.review');
     }
 
     /**
@@ -96,7 +100,7 @@ class FindingPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'field_auditor']);
+        return $user->can('ncrs.raise');
     }
 
     /**
@@ -104,11 +108,11 @@ class FindingPolicy
      */
     public function update(User $user, Finding $finding): bool
     {
-        if ($user->hasAnyRole(['system_admin', 'lead_auditor'])) {
+        if ($user->can('ncrs.edit') || $user->can('settings.manage')) {
             return true;
         }
 
-        if ($user->hasRole('field_auditor') && $finding->audit?->lead_auditor_id === $user->id) {
+        if ($user->can('audits.conduct') && $finding->audit?->lead_auditor_id === $user->id) {
             return true;
         }
 
@@ -120,6 +124,6 @@ class FindingPolicy
      */
     public function delete(User $user, Finding $finding): bool
     {
-        return $user->hasRole('system_admin');
+        return $user->can('ncrs.delete');
     }
 }

@@ -50,21 +50,7 @@ new #[Title('Audit Overview')] class extends Component {
             </div>
             <div class="flex items-center space-x-3">
                 <flux:heading size="xl">{{ $audit->title }}</flux:heading>
-                @php
-                    $badgeColor = match ($audit->status) {
-                        'scheduled' => 'zinc',
-                        'in_progress' => 'amber',
-                        'submitted' => 'cyan',
-                        'reviewed' => 'blue',
-                        'head_approved' => 'indigo',
-                        'director_approved' => 'emerald',
-                        'returned' => 'rose',
-                        default => 'zinc',
-                    };
-                @endphp
-                <flux:badge size="sm" :color="$badgeColor">
-                    {{ ucwords(str_replace('_', ' ', $audit->status)) }}
-                </flux:badge>
+                <x-status-badge :status="$audit->status" type="audit_status" />
             </div>
         </div>
 
@@ -72,11 +58,11 @@ new #[Title('Audit Overview')] class extends Component {
             <flux:button href="{{ route('audits.index') }}" variant="ghost" wire:navigate>
                 &larr; Back to Audits
             </flux:button>
-            @hasrole('field_auditor')
+            @can('audits.conduct')
                 <flux:button href="{{ route('field.audit', $audit->id) }}" variant="primary" icon="clipboard-document-check" wire:navigate>
                     Open Field Execution
                 </flux:button>
-            @endhasrole
+            @endcan
         </div>
     </div>
 

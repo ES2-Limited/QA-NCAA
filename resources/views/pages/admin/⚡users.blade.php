@@ -18,7 +18,7 @@ new #[Title('NCAA Users Admin')] class extends Component {
     public $directorate_id = '';
     public $department_id = '';
     public $unit_id = '';
-    public $selectedRole = 'auditor';
+    public array $selectedRoles = [];
     public $editingId = null;
     public $showModal = false;
 
@@ -33,20 +33,21 @@ new #[Title('NCAA Users Admin')] class extends Component {
             'directorate_id' => 'nullable|exists:directorates,id',
             'department_id' => 'nullable|exists:departments,id',
             'unit_id' => 'nullable|exists:units,id',
-            'selectedRole' => 'required|exists:roles,name',
+            'selectedRoles' => 'required|array|min:1',
+            'selectedRoles.*' => 'exists:roles,name',
         ];
     }
 
     public function create()
     {
-        $this->reset(['name', 'email', 'password', 'staff_id', 'phone', 'directorate_id', 'department_id', 'unit_id', 'selectedRole', 'editingId']);
-        $this->selectedRole = 'auditor';
+        $this->reset(['name', 'email', 'password', 'staff_id', 'phone', 'directorate_id', 'department_id', 'unit_id', 'selectedRoles', 'editingId']);
+        $this->selectedRoles = ['auditee'];
         $this->showModal = true;
     }
 
     public function edit($id)
     {
-        $user = User::findOrFail($id);
+        $user = User::with('roles')->findOrFail($id);
         $this->editingId = $user->id;
         $this->name = $user->name;
         $this->email = $user->email;
@@ -56,7 +57,7 @@ new #[Title('NCAA Users Admin')] class extends Component {
         $this->directorate_id = $user->directorate_id;
         $this->department_id = $user->department_id;
         $this->unit_id = $user->unit_id;
-        $this->selectedRole = $user->roles->first()?->name ?? 'auditor';
+        $this->selectedRoles = $user->roles->pluck('name')->toArray();
         $this->showModal = true;
     }
 
@@ -72,7 +73,7 @@ new #[Title('NCAA Users Admin')] class extends Component {
             'directorate_id' => $this->directorate_id ?: null,
             'department_id' => $this->department_id ?: null,
             'unit_id' => $this->unit_id ?: null,
-            'role' => $this->selectedRole,
+            'role' => $this->selectedRoles[0] ?? 'auditee',
         ];
 
         if (!empty($this->password)) {
@@ -84,10 +85,10 @@ new #[Title('NCAA Users Admin')] class extends Component {
             $userData
         );
 
-        $user->syncRoles([$this->selectedRole]);
+        $user->syncRoles($this->selectedRoles);
 
         $this->showModal = false;
-        $this->reset(['name', 'email', 'password', 'staff_id', 'phone', 'directorate_id', 'department_id', 'unit_id', 'selectedRole', 'editingId']);
+        $this->reset(['name', 'email', 'password', 'staff_id', 'phone', 'directorate_id', 'department_id', 'unit_id', 'selectedRoles', 'editingId']);
         session()->flash('message', 'User account saved successfully.');
     }
 
@@ -249,11 +250,18 @@ new #[Title('NCAA Users Admin')] class extends Component {
                     <flux:input wire:model="phone" label="Phone" placeholder="+234..." />
                 </div>
 
-                <flux:select wire:model="selectedRole" label="Spatie RBAC Role" required>
-                    @foreach($roles as $role)
-                        <flux:select.option value="{{ $role->name }}">{{ ucwords(str_replace('_', ' ', $role->name)) }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <div class="space-y-1.5">
+                    <flux:label>Spatie RBAC Roles (Multiple selection supported)</flux:label>
+                    <div class="grid grid-cols-2 gap-2 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        @foreach($roles as $role)
+                            <label class="flex items-center space-x-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                                <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}" class="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500" />
+                                <span>{{ ucwords(str_replace('_', ' ', $role->name)) }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('selectedRoles') <span class="text-xs text-rose-600">{{ $message }}</span> @enderror
+                </div>
 
                 <flux:select wire:model="directorate_id" label="Directorate">
                     <flux:select.option value="">None / Unassigned</flux:select.option>

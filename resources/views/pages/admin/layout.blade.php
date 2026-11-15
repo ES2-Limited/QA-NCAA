@@ -4,6 +4,8 @@
             <flux:navlist.item :href="route('admin.directorates')" :current="request()->routeIs('admin.directorates')" wire:navigate>{{ __('Directorates') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.departments')" :current="request()->routeIs('admin.departments')" wire:navigate>{{ __('Departments') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.units')" :current="request()->routeIs('admin.units')" wire:navigate>{{ __('Units') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('admin.lookups')" :current="request()->routeIs('admin.lookups')" wire:navigate>{{ __('Lookup Lists') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('admin.roles')" :current="request()->routeIs('admin.roles')" wire:navigate>{{ __('Roles & Permissions') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.documents')" :current="request()->routeIs('admin.documents')" wire:navigate>{{ __('Document Library') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>{{ __('User Accounts') }}</flux:navlist.item>
         </flux:navlist>

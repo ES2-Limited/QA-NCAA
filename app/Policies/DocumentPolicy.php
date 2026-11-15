@@ -12,26 +12,26 @@ class DocumentPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director']);
+        return $user->can('documents.view');
     }
 
     public function view(User $user, Document $document): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director']);
+        return $user->can('documents.view');
     }
 
     public function download(User $user, Document $document): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor', 'head_of_audit', 'director']);
+        return $user->can('documents.download');
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['system_admin', 'lead_auditor']);
+        return $user->can('documents.upload');
     }
 
     public function delete(User $user, Document $document): bool
     {
-        return $user->hasRole('system_admin');
+        return $user->can('documents.delete');
     }
 }
