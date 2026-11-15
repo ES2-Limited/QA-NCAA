@@ -67,6 +67,9 @@
                         <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
                             {{ __('User Accounts') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="cog-6-tooth" :href="route('admin.settings')" :current="request()->routeIs('admin.settings')" wire:navigate>
+                            {{ __('System Settings') }}
+                        </flux:sidebar.item>
                     </flux:sidebar.group>
                 @endhasrole
             </flux:sidebar.nav>

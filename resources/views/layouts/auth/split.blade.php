@@ -11,7 +11,7 @@
                     <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-white p-0.5 shadow-xs border border-zinc-200 me-2">
                         <x-app-logo-icon class="size-8 object-contain" />
                     </span>
-                    {{ config('app.name', 'Nigeria Civil Aviation Authority — DSD QA/IA System') }}
+                    {{ setting('general.system_name', config('app.name', 'Nigeria Civil Aviation Authority — DSD QA/IA System')) }}
                 </a>
 
                 @php
@@ -32,7 +32,7 @@
                             <x-app-logo-icon class="size-10 object-contain" />
                         </span>
 
-                        <span class="sr-only">{{ config('app.name', 'Nigeria Civil Aviation Authority') }}</span>
+                        <span class="sr-only">{{ setting('general.system_name', config('app.name', 'Nigeria Civil Aviation Authority')) }}</span>
                     </a>
                     {{ $slot }}
                 </div>

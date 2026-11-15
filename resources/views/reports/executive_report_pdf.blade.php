@@ -67,10 +67,10 @@
         <table style="width: 100%;">
             <tr>
                 <td style="width: 60px; vertical-align: middle;">
-                    <img src="{{ public_path('images/ncaa-logo.png') }}" width="48" height="48" alt="NCAA Logo">
+                    <img src="{{ public_path(ltrim(setting('general.logo_url', '/images/ncaa-logo.png'), '/')) }}" width="48" height="48" alt="{{ setting('general.organisation_name', 'NCAA') }} Logo">
                 </td>
                 <td style="vertical-align: middle;">
-                    <div class="title">Nigeria Civil Aviation Authority — DSD QA/IA System &bull; Executive Report</div>
+                    <div class="title">{{ setting('general.system_name', 'Nigeria Civil Aviation Authority — DSD QA/IA System') }} &bull; Executive Report</div>
                     <div class="meta">Directorate of Special Duties | Quality Assurance & Internal Audit Division</div>
                     <div class="meta">Report Generation Date: {{ $date }} | Coverage: {{ $period }}</div>
                 </td>
@@ -83,7 +83,7 @@
     </div>
 
     <div class="footer">
-        Confidential &bull; Nigeria Civil Aviation Authority &bull; For internal executive oversight only.
+        Confidential &bull; {{ setting('general.organisation_name', 'Nigeria Civil Aviation Authority') }} &bull; For internal executive oversight only.
     </div>
 </body>
 </html>

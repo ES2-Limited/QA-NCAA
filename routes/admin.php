@@ -24,6 +24,7 @@ Route::middleware(['auth', 'role:system_admin'])->group(function () {
     Route::livewire('admin/departments', 'pages::admin.departments')->name('admin.departments');
     Route::livewire('admin/units', 'pages::admin.units')->name('admin.units');
     Route::livewire('admin/users', 'pages::admin.users')->name('admin.users');
+    Route::livewire('admin/settings', 'pages::admin.settings')->name('admin.settings');
 });
 
 // Document Library accessible to system_admin and lead_auditor

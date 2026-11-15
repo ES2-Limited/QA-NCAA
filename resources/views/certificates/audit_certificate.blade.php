@@ -114,10 +114,10 @@
     <div class="border-frame">
         <div class="header">
             <div style="text-align: center; margin-bottom: 8px;">
-                <img src="{{ public_path('images/ncaa-logo.png') }}" width="48" height="48" alt="NCAA Logo">
+                <img src="{{ public_path(ltrim(setting('general.logo_url', '/images/ncaa-logo.png'), '/')) }}" width="48" height="48" alt="{{ setting('general.organisation_name', 'NCAA') }} Logo">
             </div>
-            <div class="crest">DSD QA/IA SYSTEM</div>
-            <div class="subtitle">Directorate of Special Duties (DSD) &bull; Internal Quality Assurance</div>
+            <div class="crest">{{ setting('general.system_name', 'DSD QA/IA SYSTEM') }}</div>
+            <div class="subtitle">{{ setting('general.organisation_name', 'Directorate of Special Duties (DSD)') }} &bull; Internal Quality Assurance</div>
         </div>
 
         <div class="cert-title">Internal Quality Audit Certificate</div>
