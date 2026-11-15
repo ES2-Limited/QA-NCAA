@@ -3,8 +3,6 @@
 use App\Services\SettingService;
 use Database\Seeders\SettingSeeder;
 use Flux\Flux;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -27,15 +25,31 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
     // Temporary upload for logo
     public $new_logo = null;
 
-    // Group 2: Audit & CAP Policies
-    public int $cap_due_level_1 = 7;
-    public int $cap_due_level_2 = 14;
-    public int $cap_due_level_3 = 30;
-    public int $advance_reminder_days = 14;
+    // Group 2: Audit Rules
+    // Finding Levels: array of ['level' => int, 'name' => string, 'cap_submission_days' => int, 'closure_days' => int]
+    public array $finding_levels = [];
+
+    // Routine Alert Days & Allowed Frequencies
+    public string $routine_alert_days = '14, 7';
+    public string $allowed_frequencies = 'weekly, monthly, quarterly, bi-annual, annual';
+
+    // Default question answers & Non-compliant trigger values
+    public string $default_answer_options = 'Compliant, Non-compliant, N/A';
+    public string $non_compliant_answers = 'Non-compliant, non_compliant';
+
+    // Reference Formats
+    public string $reference_format_ncr = 'NCR-{YYYY}-{####}';
+    public string $reference_format_certificate = 'DSD-QA-{YYYY}-{####}';
+    public string $reference_format_audit = 'AUD-{YYYY}-{CODE}-{###}';
+
+    // Upload Rules
+    public string $upload_evidence_types = 'jpg,jpeg,png,webp,pdf,docx,doc';
+    public int $upload_evidence_max_kb = 10240;
+    public string $upload_document_types = 'pdf,docx';
+    public int $upload_document_max_kb = 20480;
 
     public function mount(): void
     {
-        // Enforce system_admin role
         if (! auth()->user()?->hasRole('system_admin')) {
             abort(403, 'Unauthorized.');
         }
@@ -61,10 +75,53 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
         $this->date_format = (string) setting('general.date_format', 'M d, Y');
 
         // Audit rules
-        $this->cap_due_level_1 = (int) setting('audit.cap_due.level_1', 7);
-        $this->cap_due_level_2 = (int) setting('audit.cap_due.level_2', 14);
-        $this->cap_due_level_3 = (int) setting('audit.cap_due.level_3', 30);
-        $this->advance_reminder_days = (int) setting('audit.advance_reminder_days', 14);
+        $defaultLevels = [
+            ['level' => 1, 'name' => 'Level 1 — Critical / Safety Issue', 'cap_submission_days' => 3, 'closure_days' => 14],
+            ['level' => 2, 'name' => 'Level 2 — Major Non-Conformance', 'cap_submission_days' => 14, 'closure_days' => 30],
+            ['level' => 3, 'name' => 'Level 3 — Minor Observation', 'cap_submission_days' => 30, 'closure_days' => 90],
+        ];
+        $this->finding_levels = setting('audit.finding_levels', $defaultLevels);
+
+        $alertDays = setting('audit.routine_alert_days', [14, 7]);
+        $this->routine_alert_days = is_array($alertDays) ? implode(', ', $alertDays) : (string) $alertDays;
+
+        $freqs = setting('audit.allowed_frequencies', ['weekly', 'monthly', 'quarterly', 'bi-annual', 'annual']);
+        $this->allowed_frequencies = is_array($freqs) ? implode(', ', $freqs) : (string) $freqs;
+
+        $ansOptions = setting('audit.default_answer_options', ['Compliant', 'Non-compliant', 'N/A']);
+        $this->default_answer_options = is_array($ansOptions) ? implode(', ', $ansOptions) : (string) $ansOptions;
+
+        $nonComp = setting('audit.non_compliant_answers', ['Non-compliant', 'non_compliant']);
+        $this->non_compliant_answers = is_array($nonComp) ? implode(', ', $nonComp) : (string) $nonComp;
+
+        $this->reference_format_ncr = (string) setting('audit.reference_format.ncr', 'NCR-{YYYY}-{####}');
+        $this->reference_format_certificate = (string) setting('audit.reference_format.certificate', 'DSD-QA-{YYYY}-{####}');
+        $this->reference_format_audit = (string) setting('audit.reference_format.audit', 'AUD-{YYYY}-{CODE}-{###}');
+
+        $evRules = setting('audit.uploads.evidence', ['allowed_types' => 'jpg,jpeg,png,webp,pdf,docx,doc', 'max_size_kb' => 10240]);
+        $this->upload_evidence_types = $evRules['allowed_types'] ?? 'jpg,jpeg,png,webp,pdf,docx,doc';
+        $this->upload_evidence_max_kb = (int) ($evRules['max_size_kb'] ?? 10240);
+
+        $docRules = setting('audit.uploads.documents', ['allowed_types' => 'pdf,docx', 'max_size_kb' => 20480]);
+        $this->upload_document_types = $docRules['allowed_types'] ?? 'pdf,docx';
+        $this->upload_document_max_kb = (int) ($docRules['max_size_kb'] ?? 20480);
+    }
+
+    public function addFindingLevel(): void
+    {
+        $newLevelNum = count($this->finding_levels) + 1;
+        $this->finding_levels[] = [
+            'level' => $newLevelNum,
+            'name' => "Level {$newLevelNum} Finding",
+            'cap_submission_days' => 14,
+            'closure_days' => 30,
+        ];
+    }
+
+    public function removeFindingLevel(int $index): void
+    {
+        unset($this->finding_levels[$index]);
+        $this->finding_levels = array_values($this->finding_levels);
     }
 
     public function saveGeneral(): void
@@ -82,7 +139,6 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
 
         $service = app(SettingService::class);
 
-        // Process logo upload if present
         if ($this->new_logo) {
             $path = $this->new_logo->store('branding', 'public');
             $this->logo_url = '/storage/' . $path;
@@ -101,32 +157,69 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
         Flux::toast(variant: 'success', text: __('General & branding settings saved successfully.'));
     }
 
-    public function saveAuditPolicies(): void
+    public function saveAuditRules(): void
     {
         $this->validate([
-            'cap_due_level_1' => ['required', 'integer', 'min:1', 'max:365'],
-            'cap_due_level_2' => ['required', 'integer', 'min:1', 'max:365'],
-            'cap_due_level_3' => ['required', 'integer', 'min:1', 'max:365'],
-            'advance_reminder_days' => ['required', 'integer', 'min:1', 'max:90'],
+            'finding_levels' => ['required', 'array', 'min:1'],
+            'finding_levels.*.level' => ['required', 'integer', 'min:1'],
+            'finding_levels.*.name' => ['required', 'string', 'max:100'],
+            'finding_levels.*.cap_submission_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'finding_levels.*.closure_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'routine_alert_days' => ['required', 'string'],
+            'allowed_frequencies' => ['required', 'string'],
+            'default_answer_options' => ['required', 'string'],
+            'non_compliant_answers' => ['required', 'string'],
+            'reference_format_ncr' => ['required', 'string', 'max:100'],
+            'reference_format_certificate' => ['required', 'string', 'max:100'],
+            'reference_format_audit' => ['required', 'string', 'max:100'],
+            'upload_evidence_types' => ['required', 'string'],
+            'upload_evidence_max_kb' => ['required', 'integer', 'min:512', 'max:102400'],
+            'upload_document_types' => ['required', 'string'],
+            'upload_document_max_kb' => ['required', 'integer', 'min:512', 'max:102400'],
         ]);
 
         $service = app(SettingService::class);
-        $service->set('audit.cap_due.level_1', $this->cap_due_level_1, 'audit', 'integer');
-        $service->set('audit.cap_due.level_2', $this->cap_due_level_2, 'audit', 'integer');
-        $service->set('audit.cap_due.level_3', $this->cap_due_level_3, 'audit', 'integer');
-        $service->set('audit.advance_reminder_days', $this->advance_reminder_days, 'audit', 'integer');
 
-        Flux::toast(variant: 'success', text: __('Audit & CAP policies saved successfully.'));
+        // 1. Finding levels
+        $service->set('audit.finding_levels', $this->finding_levels, 'audit', 'json');
+
+        // 2. Alert days & frequencies
+        $alertDaysArray = array_values(array_filter(array_map('intval', array_map('trim', explode(',', $this->routine_alert_days)))));
+        $service->set('audit.routine_alert_days', $alertDaysArray, 'audit', 'json');
+
+        $freqsArray = array_values(array_filter(array_map('trim', explode(',', $this->allowed_frequencies))));
+        $service->set('audit.allowed_frequencies', $freqsArray, 'audit', 'json');
+
+        // 3. Question default options & Non-compliant answers
+        $optsArray = array_values(array_filter(array_map('trim', explode(',', $this->default_answer_options))));
+        $service->set('audit.default_answer_options', $optsArray, 'audit', 'json');
+
+        $nonCompArray = array_values(array_filter(array_map('trim', explode(',', $this->non_compliant_answers))));
+        $service->set('audit.non_compliant_answers', $nonCompArray, 'audit', 'json');
+
+        // 4. Reference formats
+        $service->set('audit.reference_format.ncr', $this->reference_format_ncr, 'audit', 'string');
+        $service->set('audit.reference_format.certificate', $this->reference_format_certificate, 'audit', 'string');
+        $service->set('audit.reference_format.audit', $this->reference_format_audit, 'audit', 'string');
+
+        // 5. Upload rules
+        $service->set('audit.uploads.evidence', [
+            'allowed_types' => str_replace(' ', '', $this->upload_evidence_types),
+            'max_size_kb' => $this->upload_evidence_max_kb,
+        ], 'audit', 'json');
+
+        $service->set('audit.uploads.documents', [
+            'allowed_types' => str_replace(' ', '', $this->upload_document_types),
+            'max_size_kb' => $this->upload_document_max_kb,
+        ], 'audit', 'json');
+
+        Flux::toast(variant: 'success', text: __('Audit rules and governance policies saved successfully.'));
     }
 
-    /**
-     * Reset the active tab or all settings to system defaults.
-     */
     public function resetToDefault(?string $group = null): void
     {
         $group = $group ?? $this->activeTab;
         $defaults = SettingSeeder::defaults();
-
         $service = app(SettingService::class);
 
         foreach ($defaults as $key => $data) {
@@ -181,7 +274,7 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
                 class="py-3 px-1 text-sm font-semibold border-b-2 transition flex items-center gap-2 {{ $activeTab === 'audit' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400' }}"
             >
                 <flux:icon name="clipboard-document-check" class="size-4" />
-                <span>Audit &amp; CAP Policies</span>
+                <span>Audit Rules</span>
             </button>
         </nav>
     </div>
@@ -305,7 +398,6 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
                     </div>
                 </div>
 
-                <!-- Action Button -->
                 <div class="pt-4 flex items-center gap-3">
                     <flux:button variant="primary" type="submit">
                         {{ __('Save General & Branding') }}
@@ -315,62 +407,219 @@ new #[Title('System Business Settings — NCAA QA/IA Admin')] class extends Comp
         </div>
     @endif
 
-    <!-- TAB 2: Audit & CAP Policies -->
+    <!-- TAB 2: Audit Rules -->
     @if($activeTab === 'audit')
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-8">
             <div>
-                <flux:heading size="lg">{{ __('Statutory Audit & CAP Due Date Parameters') }}</flux:heading>
-                <flux:subheading>{{ __('Non-conformance rectification schedules and advance notifications') }}</flux:subheading>
+                <flux:heading size="lg">{{ __('Audit Governance Rules & Parameters') }}</flux:heading>
+                <flux:subheading>{{ __('Finding classification levels, CAP deadlines, numbering masks, and statutory upload limits') }}</flux:subheading>
             </div>
 
-            <form wire:submit="saveAuditPolicies" class="space-y-6 max-w-2xl">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <flux:input
-                        wire:model="cap_due_level_1"
-                        :label="__('Level 1 CAP Due (Days)')"
-                        type="number"
-                        min="1"
-                        max="365"
-                        description="Critical statutory safety finding"
-                        required
-                    />
+            <form wire:submit="saveAuditRules" class="space-y-8">
+                <!-- 1. Finding Classification Levels -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                        <div>
+                            <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">1. Finding Levels &amp; Deadlines</h4>
+                            <p class="text-xs text-zinc-500">Configure CAP submission and closure verification deadlines per severity</p>
+                        </div>
+                        <flux:button wire:click="addFindingLevel" size="xs" variant="outline" icon="plus">
+                            Add Finding Level
+                        </flux:button>
+                    </div>
 
-                    <flux:input
-                        wire:model="cap_due_level_2"
-                        :label="__('Level 2 CAP Due (Days)')"
-                        type="number"
-                        min="1"
-                        max="365"
-                        description="Major operational finding"
-                        required
-                    />
-
-                    <flux:input
-                        wire:model="cap_due_level_3"
-                        :label="__('Level 3 CAP Due (Days)')"
-                        type="number"
-                        min="1"
-                        max="365"
-                        description="Minor observation / administrative"
-                        required
-                    />
+                    <div class="space-y-3">
+                        @foreach($finding_levels as $i => $levelItem)
+                            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-850/60 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                                <div class="md:col-span-2">
+                                    <flux:input
+                                        wire:model="finding_levels.{{ $i }}.level"
+                                        label="Level ID *"
+                                        type="number"
+                                        min="1"
+                                        required
+                                    />
+                                </div>
+                                <div class="md:col-span-4">
+                                    <flux:input
+                                        wire:model="finding_levels.{{ $i }}.name"
+                                        label="Level Designation Title *"
+                                        placeholder="e.g. Critical Safety"
+                                        required
+                                    />
+                                </div>
+                                <div class="md:col-span-2">
+                                    <flux:input
+                                        wire:model="finding_levels.{{ $i }}.cap_submission_days"
+                                        label="CAP Submission (Days) *"
+                                        type="number"
+                                        min="1"
+                                        required
+                                    />
+                                </div>
+                                <div class="md:col-span-2">
+                                    <flux:input
+                                        wire:model="finding_levels.{{ $i }}.closure_days"
+                                        label="Closure Due (Days) *"
+                                        type="number"
+                                        min="1"
+                                        required
+                                    />
+                                </div>
+                                <div class="md:col-span-2 flex justify-end pt-5">
+                                    @if(count($finding_levels) > 1)
+                                        <flux:button
+                                            wire:click="removeFindingLevel({{ $i }})"
+                                            size="sm"
+                                            variant="ghost"
+                                            icon="trash"
+                                            class="text-rose-600 hover:text-rose-700"
+                                            title="Delete level"
+                                        />
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
 
-                <div class="max-w-xs">
-                    <flux:input
-                        wire:model="advance_reminder_days"
-                        :label="__('Routine Advance Notice (Days)')"
-                        type="number"
-                        min="1"
-                        max="90"
-                        description="Advance warning before routine audit execution"
-                        required
-                    />
+                <!-- 2. Alert Days & Allowed Frequencies -->
+                <div class="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div>
+                        <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">2. Routine Surveillance Scheduling</h4>
+                        <p class="text-xs text-zinc-500">Advance reminder intervals and allowed frequencies for routine quality processes</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <flux:input
+                            wire:model="routine_alert_days"
+                            label="Advance Notice Days (comma separated) *"
+                            placeholder="14, 7"
+                            description="Send notifications when an audit is exactly X days away"
+                            required
+                        />
+
+                        <flux:input
+                            wire:model="allowed_frequencies"
+                            label="Permitted Frequencies (comma separated) *"
+                            placeholder="weekly, monthly, quarterly, bi-annual, annual"
+                            description="Available intervals when designing routine processes"
+                            required
+                        />
+                    </div>
                 </div>
 
-                <div class="pt-2">
+                <!-- 3. Question Options & Non-compliant Definitions -->
+                <div class="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div>
+                        <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">3. Verification Question Options &amp; Non-Compliance</h4>
+                        <p class="text-xs text-zinc-500">Default choice selections and automated triggers for recommending NCRs</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <flux:input
+                            wire:model="default_answer_options"
+                            label="Default Answer Options (comma separated) *"
+                            placeholder="Compliant, Non-compliant, N/A"
+                            description="Pre-populated options for new radio/choice audit checklist questions"
+                            required
+                        />
+
+                        <flux:input
+                            wire:model="non_compliant_answers"
+                            label="Non-Compliant Trigger Values (comma separated) *"
+                            placeholder="Non-compliant, non_compliant"
+                            description="Answers that automatically prompt inspectors or reviewers to log an NCR"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <!-- 4. Reference Number Formats -->
+                <div class="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div>
+                        <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">4. Reference Numbering Masks</h4>
+                        <p class="text-xs text-zinc-500">Tokens supported: {YYYY}, {YY}, {MM}, {CODE}, {####}, {###}, {##}, {RAND}</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <flux:input
+                            wire:model="reference_format_ncr"
+                            label="NCR Mask *"
+                            placeholder="NCR-{YYYY}-{####}"
+                            required
+                        />
+
+                        <flux:input
+                            wire:model="reference_format_certificate"
+                            label="Certificate Mask *"
+                            placeholder="DSD-QA-{YYYY}-{####}"
+                            required
+                        />
+
+                        <flux:input
+                            wire:model="reference_format_audit"
+                            label="Audit Engagement Mask *"
+                            placeholder="AUD-{YYYY}-{CODE}-{###}"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <!-- 5. Upload Limits & Permitted File Extensions -->
+                <div class="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div>
+                        <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">5. File Upload Whitelists &amp; Quotas</h4>
+                        <p class="text-xs text-zinc-500">Control allowed formats and maximum payload sizes for security</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Evidence Uploads -->
+                        <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-3 bg-zinc-50/50 dark:bg-zinc-850/40">
+                            <h5 class="text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300">Field Evidence &amp; CAP Attachments</h5>
+                            <flux:input
+                                wire:model="upload_evidence_types"
+                                label="Permitted Extensions *"
+                                placeholder="jpg,jpeg,png,webp,pdf,docx,doc"
+                                required
+                            />
+                            <flux:input
+                                wire:model="upload_evidence_max_kb"
+                                label="Max Size in Kilobytes (KB) *"
+                                type="number"
+                                min="512"
+                                max="102400"
+                                description="e.g. 10240 KB = 10 MB"
+                                required
+                            />
+                        </div>
+
+                        <!-- Document Library -->
+                        <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-3 bg-zinc-50/50 dark:bg-zinc-850/40">
+                            <h5 class="text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300">Regulatory Library Documents</h5>
+                            <flux:input
+                                wire:model="upload_document_types"
+                                label="Permitted Extensions *"
+                                placeholder="pdf,docx"
+                                required
+                            />
+                            <flux:input
+                                wire:model="upload_document_max_kb"
+                                label="Max Size in Kilobytes (KB) *"
+                                type="number"
+                                min="512"
+                                max="102400"
+                                description="e.g. 20480 KB = 20 MB"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="pt-4 flex items-center gap-3">
                     <flux:button variant="primary" type="submit">
-                        {{ __('Save Audit Policies') }}
+                        {{ __('Save Audit Rules') }}
                     </flux:button>
                 </div>
             </form>

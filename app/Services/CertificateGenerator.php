@@ -17,7 +17,7 @@ class CertificateGenerator
     {
         $issuedBy = $issuedById ?: auth()->id();
         $token = Str::random(32);
-        $number = 'DSD-QA-'.date('Y').'-'.str_pad((string) $audit->id, 4, '0', STR_PAD_LEFT);
+        $number = ReferenceGenerator::generateCertificateReference($audit);
 
         $verifyUrl = url('/verify/'.$token);
 

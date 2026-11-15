@@ -65,12 +65,13 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
             $this->first_due_date = $this->process->next_due_at ? $this->process->next_due_at->format('Y-m-d') : '';
             $this->selectedDocumentIds = $this->process->documents->pluck('id')->toArray();
 
+            $defaultOpts = setting('audit.default_answer_options', ['Compliant', 'Non-compliant', 'N/A']);
             foreach ($this->process->questions as $q) {
                 $this->questions[] = [
                     'id' => $q->id,
                     'question' => $q->question,
                     'type' => $q->type,
-                    'options' => $q->options ?: ['Compliant', 'Non-compliant', 'N/A'],
+                    'options' => $q->options ?: $defaultOpts,
                     'requirement_ref' => $q->requirement_ref ?? '',
                     'guidance' => $q->guidance ?? '',
                     'source' => $q->source,
@@ -121,8 +122,9 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
             ]);
         } elseif ($step === 3) {
             if ($this->type === 'routine') {
+                $allowed = implode(',', setting('audit.allowed_frequencies', ['weekly', 'monthly', 'quarterly', 'yearly', 'annual', 'bi-annual']));
                 $this->validate([
-                    'frequency' => 'required|in:weekly,monthly,quarterly,yearly',
+                    'frequency' => 'required|in:' . $allowed,
                     'first_due_date' => 'required|date',
                 ]);
             }
@@ -157,10 +159,12 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
     // Checklist Question Management
     public function addQuestion()
     {
+        $defaultOpts = setting('audit.default_answer_options', ['Compliant', 'Non-compliant', 'N/A']);
+
         $this->questions[] = [
             'question' => '',
             'type' => 'radio',
-            'options' => ['Compliant', 'Non-compliant', 'N/A'],
+            'options' => $defaultOpts,
             'requirement_ref' => '',
             'guidance' => '',
             'source' => 'manual',
@@ -273,8 +277,9 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
         ]);
 
         if ($this->type === 'routine') {
+            $allowed = implode(',', setting('audit.allowed_frequencies', ['weekly', 'monthly', 'quarterly', 'yearly', 'annual', 'bi-annual']));
             $this->validate([
-                'frequency' => 'required|in:weekly,monthly,quarterly,yearly',
+                'frequency' => 'required|in:' . $allowed,
                 'first_due_date' => 'required|date',
             ]);
         }
@@ -508,10 +513,9 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
                 @if($type === 'routine')
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
                         <flux:select wire:model="frequency" label="Frequency *" required>
-                            <flux:select.option value="weekly">Weekly</flux:select.option>
-                            <flux:select.option value="monthly">Monthly</flux:select.option>
-                            <flux:select.option value="quarterly">Quarterly</flux:select.option>
-                            <flux:select.option value="yearly">Yearly</flux:select.option>
+                            @foreach(setting('audit.allowed_frequencies', ['weekly', 'monthly', 'quarterly', 'yearly', 'annual', 'bi-annual']) as $freq)
+                                <flux:select.option value="{{ $freq }}">{{ ucfirst($freq) }}</flux:select.option>
+                            @endforeach
                         </flux:select>
 
                         <flux:input wire:model="first_due_date" type="date" label="First Audit Due Date *" required />

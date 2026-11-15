@@ -49,11 +49,15 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
     {
         $this->authorize('submitCap', $this->ncr);
 
+        $evidenceRules = setting('audit.uploads.evidence', ['allowed_types' => 'jpg,jpeg,png,webp,pdf,docx,doc', 'max_size_kb' => 10240]);
+        $allowedEvidenceMimes = $evidenceRules['allowed_types'] ?? 'jpg,jpeg,png,webp,pdf,docx,doc';
+        $maxEvidenceKb = $evidenceRules['max_size_kb'] ?? 10240;
+
         $this->validate([
             'rootCause' => 'required|string',
             'proposedAction' => 'required|string',
             'targetDate' => 'required|date',
-            'closureEvidence.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
+            'closureEvidence.*' => "nullable|file|mimes:{$allowedEvidenceMimes}|max:{$maxEvidenceKb}",
         ]);
 
         $cap = CorrectiveActionPlan::updateOrCreate(

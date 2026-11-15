@@ -108,9 +108,13 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
             return;
         }
 
+        $evidenceRules = setting('audit.uploads.evidence', ['allowed_types' => 'jpg,jpeg,png,webp,pdf,docx,doc', 'max_size_kb' => 10240]);
+        $allowedEvidenceMimes = $evidenceRules['allowed_types'] ?? 'jpg,jpeg,png,webp,pdf,docx,doc';
+        $maxEvidenceKb = $evidenceRules['max_size_kb'] ?? 10240;
+
         $this->validate([
-            'newPhotos.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:10240',
-            'newFiles.*' => 'nullable|file|mimes:pdf,docx,doc|max:20480',
+            'newPhotos.*' => "nullable|file|mimes:{$allowedEvidenceMimes}|max:{$maxEvidenceKb}",
+            'newFiles.*' => "nullable|file|mimes:{$allowedEvidenceMimes}|max:{$maxEvidenceKb}",
         ]);
 
         // Auto-start audit on first save

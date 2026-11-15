@@ -56,26 +56,92 @@ class SettingSeeder extends Seeder
                 'type' => 'string',
             ],
 
-            // Audit & CAP Policies (Pre-populated business rules)
-            'audit.cap_due.level_1' => [
+            // Audit Rules (Group 2)
+            // 1. Finding levels: level id/key, name, cap_submission_days, closure_days
+            'audit.finding_levels' => [
                 'group' => 'audit',
-                'value' => 7, // days
-                'type' => 'integer',
+                'value' => [
+                    [
+                        'level' => 1,
+                        'name' => 'Level 1 — Critical / Safety Issue',
+                        'cap_submission_days' => 3, // 72 hours / 3 days
+                        'closure_days' => 14,
+                    ],
+                    [
+                        'level' => 2,
+                        'name' => 'Level 2 — Major Non-Conformance',
+                        'cap_submission_days' => 14,
+                        'closure_days' => 30,
+                    ],
+                    [
+                        'level' => 3,
+                        'name' => 'Level 3 — Minor Observation',
+                        'cap_submission_days' => 30,
+                        'closure_days' => 90,
+                    ],
+                ],
+                'type' => 'json',
             ],
-            'audit.cap_due.level_2' => [
+
+            // 2. Routine alert days & allowed frequencies
+            'audit.routine_alert_days' => [
                 'group' => 'audit',
-                'value' => 14, // days
-                'type' => 'integer',
+                'value' => [14, 7],
+                'type' => 'json',
             ],
-            'audit.cap_due.level_3' => [
+            'audit.allowed_frequencies' => [
                 'group' => 'audit',
-                'value' => 30, // days
-                'type' => 'integer',
+                'value' => ['weekly', 'monthly', 'quarterly', 'bi-annual', 'annual'],
+                'type' => 'json',
             ],
-            'audit.advance_reminder_days' => [
+
+            // 3. Default question answer options
+            'audit.default_answer_options' => [
                 'group' => 'audit',
-                'value' => 14,
-                'type' => 'integer',
+                'value' => ['Compliant', 'Non-compliant', 'N/A'],
+                'type' => 'json',
+            ],
+
+            // 4. Answers that count as non-compliant (to flag / suggest NCRs)
+            'audit.non_compliant_answers' => [
+                'group' => 'audit',
+                'value' => ['Non-compliant', 'non_compliant'],
+                'type' => 'json',
+            ],
+
+            // 5. Reference numbering formats
+            'audit.reference_format.ncr' => [
+                'group' => 'audit',
+                'value' => 'NCR-{YYYY}-{####}',
+                'type' => 'string',
+            ],
+            'audit.reference_format.certificate' => [
+                'group' => 'audit',
+                'value' => 'DSD-QA-{YYYY}-{####}',
+                'type' => 'string',
+            ],
+            'audit.reference_format.audit' => [
+                'group' => 'audit',
+                'value' => 'AUD-{YYYY}-{CODE}-{###}',
+                'type' => 'string',
+            ],
+
+            // 6. Upload rules
+            'audit.uploads.evidence' => [
+                'group' => 'audit',
+                'value' => [
+                    'allowed_types' => 'jpg,jpeg,png,webp,pdf,docx,doc',
+                    'max_size_kb' => 10240, // 10 MB
+                ],
+                'type' => 'json',
+            ],
+            'audit.uploads.documents' => [
+                'group' => 'audit',
+                'value' => [
+                    'allowed_types' => 'pdf,docx',
+                    'max_size_kb' => 20480, // 20 MB
+                ],
+                'type' => 'json',
             ],
         ];
     }

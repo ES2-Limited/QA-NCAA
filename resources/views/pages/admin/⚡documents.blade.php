@@ -77,14 +77,18 @@ new #[Title('NCAA Document Library')] class extends Component {
 
     public function uploadDocument()
     {
+        $docUploadRules = setting('audit.uploads.documents', ['allowed_types' => 'pdf,docx', 'max_size_kb' => 20480]);
+        $allowedMimes = $docUploadRules['allowed_types'] ?? 'pdf,docx';
+        $maxKb = $docUploadRules['max_size_kb'] ?? 20480;
+
         $this->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'unit_id' => 'nullable|exists:units,id',
-            'file' => 'required|file|mimes:pdf,docx|max:20480', // 20 MB max
+            'file' => "required|file|mimes:{$allowedMimes}|max:{$maxKb}",
         ], [
-            'file.mimes' => 'Only PDF or DOCX files are permitted for compliance archives.',
-            'file.max' => 'The document must not exceed 20 MB.',
+            'file.mimes' => "Only {$allowedMimes} files are permitted for compliance archives.",
+            'file.max' => 'The document exceeds the maximum permitted file size.',
         ]);
 
         $originalName = $this->file->getClientOriginalName();

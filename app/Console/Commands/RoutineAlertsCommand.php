@@ -7,9 +7,9 @@ use App\Models\Process;
 use App\Models\User;
 use App\Notifications\AuditAssigned;
 use App\Notifications\RoutineAuditDue;
+use App\Services\ReferenceGenerator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 
 class RoutineAlertsCommand extends Command
 {
@@ -45,8 +45,9 @@ class RoutineAlertsCommand extends Command
             $nextDue = Carbon::parse($process->next_due_at)->startOfDay();
             $daysDiff = (int) round($today->diffInDays($nextDue, false));
 
-            // 1. Advance notification (exactly 14 or 7 days away)
-            if ($daysDiff === 14 || $daysDiff === 7) {
+            // 1. Advance notification (based on configured alert days, e.g. 14 or 7 days away)
+            $configuredAlertDays = setting('audit.routine_alert_days', [14, 7]);
+            if (in_array($daysDiff, $configuredAlertDays, true)) {
                 $recipient = $process->creator ?: User::role('lead_auditor')->first();
                 if ($recipient) {
                     // Safe to run twice on same day: check if already alerted today
@@ -97,7 +98,7 @@ class RoutineAlertsCommand extends Command
                     })->toArray();
 
                     $scheduledFor = $nextDue->copy();
-                    $refNumber = 'AUD-'.strtoupper(Str::random(3)).'-'.now()->format('YmdHis');
+                    $refNumber = ReferenceGenerator::generateAuditReference($process->directorate?->code);
 
                     $audit = Audit::create([
                         'reference_number' => $refNumber,

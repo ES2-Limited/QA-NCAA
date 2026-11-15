@@ -77,8 +77,8 @@ new #[Title('Audit Review & NCR Raising')] class extends Component {
             'ncrAssignedUnitId' => 'nullable|exists:units,id',
         ]);
 
-        $capDue = ((int) $this->ncrLevel === 1) ? now()->addHours(72) : now()->addDays(14);
-        $reference = 'NCR-' . date('Y') . '-' . str_pad((string) (Finding::count() + 1), 4, '0', STR_PAD_LEFT);
+        $capDue = \App\Services\ReferenceGenerator::getCapSubmissionDeadline($this->ncrLevel);
+        $reference = \App\Services\ReferenceGenerator::generateNcrReference();
 
         $ncr = Finding::create([
             'audit_id' => $this->audit->id,
@@ -256,12 +256,17 @@ new #[Title('Audit Review & NCR Raising')] class extends Component {
                     </div>
 
                     @if($hasAnswer && ! $ncrForAnswer)
+                        @php
+                            $nonCompliantValues = setting('audit.non_compliant_answers', ['Non-compliant', 'non_compliant']);
+                            $isSuggestedNcr = is_string($answer->value) && in_array(strtolower($answer->value), array_map('strtolower', $nonCompliantValues));
+                        @endphp
                         <flux:button 
                             wire:click="openNcrModal({{ $answer->id }}, '{{ addslashes($q['requirement_ref'] ?? '') }}', '{{ addslashes($q['question']) }}')" 
                             size="xs" 
                             variant="danger" 
-                            icon="exclamation-triangle">
-                            Flag as Non-Compliant (NCR)
+                            icon="exclamation-triangle"
+                            class="{{ $isSuggestedNcr ? 'ring-2 ring-rose-500 animate-pulse' : '' }}">
+                            {{ $isSuggestedNcr ? 'Action Required: Raise NCR' : 'Flag as Non-Compliant (NCR)' }}
                         </flux:button>
                     @endif
                 </div>

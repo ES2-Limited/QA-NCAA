@@ -73,7 +73,7 @@ new #[Title('Process Overview')] class extends Component {
 
         $scheduledDate = Carbon::parse($this->scheduledFor);
         $status = ($this->process->type === 'unplanned' && $scheduledDate->isToday()) ? 'in_progress' : 'scheduled';
-        $refNumber = 'AUD-' . strtoupper(Str::random(3)) . '-' . now()->format('YmdHis');
+        $refNumber = \App\Services\ReferenceGenerator::generateAuditReference($this->process->directorate?->code);
 
         // Snapshot questions
         $questionsSnapshot = $this->process->questions->map(function ($q) {
