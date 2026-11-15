@@ -120,11 +120,11 @@
             <div class="subtitle">{{ setting('general.organisation_name', 'Directorate of Special Duties (DSD)') }} &bull; Internal Quality Assurance</div>
         </div>
 
-        <div class="cert-title">Internal Quality Audit Certificate</div>
+        <div class="cert-title">{{ setting('templates.certificate.title', 'Internal Quality Audit Certificate') }}</div>
         <div class="cert-number">Certificate Number: {{ $certificate->number }}</div>
 
         <div class="body-text">
-            This is to certify that an internal statutory quality assurance inspection and procedural audit was conducted in full accordance with the NCAA Quality Management Manual, statutory provisions of the Nigeria Civil Aviation Regulations (Nig.CARs), and ICAO Annex standards.
+            {{ setting('templates.certificate.body', 'This is to certify that an internal statutory quality assurance inspection and procedural audit was conducted in full accordance with the NCAA Quality Management Manual, statutory provisions of the Nigeria Civil Aviation Regulations (Nig.CARs), and ICAO Annex standards.') }}
         </div>
 
         <table class="table-data">
@@ -173,7 +173,7 @@
             <tr>
                 <td style="border: none; width: 50%;">
                     <div style="border-top: 1px solid #475569; width: 80%; padding-top: 4px; font-weight: bold; font-size: 11px;">
-                        Head of Internal Audit
+                        {{ setting('templates.certificate.signature_left_label', 'Head of Internal Audit') }}
                     </div>
                     <div style="font-size: 10px; color: #64748b;">
                         Approved: {{ $headApproval?->created_at?->format('M d, Y H:i') ?? 'Verified' }}
@@ -181,7 +181,7 @@
                 </td>
                 <td style="border: none; width: 50%; text-align: right;">
                     <div style="border-top: 1px solid #475569; width: 80%; margin-left: 20%; padding-top: 4px; font-weight: bold; font-size: 11px;">
-                        Director of Special Duties, NCAA
+                        {{ setting('templates.certificate.signature_right_label', 'Director of Special Duties, NCAA') }}
                     </div>
                     <div style="font-size: 10px; color: #64748b;">
                         Final Authorization: {{ $certificate->issued_at->format('M d, Y H:i') }}

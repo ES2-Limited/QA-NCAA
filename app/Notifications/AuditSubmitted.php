@@ -5,54 +5,44 @@ namespace App\Notifications;
 use App\Models\Audit;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class AuditSubmitted extends Notification
+class AuditSubmitted extends BaseNotification
 {
     use Queueable;
 
     public function __construct(
         public Audit $audit,
-        public ?User $submittedBy = null
+        public User $auditor
     ) {}
 
-    public function via(object $notifiable): array
+    public function eventKey(): string
     {
-        return ['database', 'mail'];
+        return 'audit_submitted';
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function defaultTemplate(): array
     {
-        $submitterName = $this->submittedBy ? $this->submittedBy->name : 'Field Auditor';
-
-        return (new MailMessage)
-            ->subject("NCAA QA Audit Submitted for Review: {$this->audit->title}")
-            ->line("Audit {$this->audit->title} has been completed and submitted by {$submitterName}.")
-            ->line('All field verification questions have been evaluated and recorded.')
-            ->action('Review Audit Engagement', route('audits.show', $this->audit->id))
-            ->line('Please inspect findings and submit your review recommendations.');
-    }
-
-    public function toArray(object $notifiable): array
-    {
-        $submitterName = $this->submittedBy ? $this->submittedBy->name : 'Field Auditor';
-
-        $isFieldOnly = method_exists($notifiable, 'hasRole')
-            && $notifiable->hasRole('field_auditor')
-            && $notifiable->roles()->count() === 1;
-
-        $targetUrl = $isFieldOnly
-            ? route('field.audit', $this->audit->id)
-            : route('audits.show', $this->audit->id);
-
         return [
-            'audit_id' => $this->audit->id,
-            'title' => $this->audit->title,
-            'submitted_by' => $submitterName,
-            'message' => "Audit {$this->audit->title} has been submitted by {$submitterName} for review.",
-            'url' => $targetUrl,
-            'type' => 'audit_submitted',
+            'email' => true,
+            'in_app' => true,
+            'subject' => 'Audit Completed & Submitted for Review: {audit_title}',
+            'body' => "Audit {audit_title} ({audit_ref}) was completed in the field by {submitted_by} and is now awaiting quality review.\nQuestions evaluated: {questions_count}.",
         ];
+    }
+
+    public function placeholderData(object $notifiable): array
+    {
+        return [
+            'audit_title' => $this->audit->title,
+            'audit_ref' => $this->audit->reference_number,
+            'submitted_by' => $this->auditor->name,
+            'questions_count' => $this->audit->answers()->count(),
+            'due_date' => now()->format('M d, Y'),
+        ];
+    }
+
+    public function targetUrl(object $notifiable): string
+    {
+        return route('review.show', $this->audit->id);
     }
 }

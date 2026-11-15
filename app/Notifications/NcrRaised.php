@@ -4,43 +4,43 @@ namespace App\Notifications;
 
 use App\Models\Finding;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class NcrRaised extends Notification
+class NcrRaised extends BaseNotification
 {
     use Queueable;
 
     public function __construct(
-        public Finding $ncr
+        public Finding $finding
     ) {}
 
-    public function via(object $notifiable): array
+    public function eventKey(): string
     {
-        return ['database', 'mail'];
+        return 'ncr_raised';
     }
 
-    public function toMail(object $notifiable): MailMessage
-    {
-        return (new MailMessage)
-            ->subject("NCAA Non-Conformance Report Raised: {$this->ncr->reference}")
-            ->line("A Level {$this->ncr->level} Non-Conformance Report ({$this->ncr->reference}) has been raised for your unit.")
-            ->line("Requirement Reference: {$this->ncr->requirement_ref}")
-            ->line("Description: {$this->ncr->description}")
-            ->line("CAP Due Date: {$this->ncr->cap_due_at?->format('M d, Y H:i')}")
-            ->action('View NCR & Submit CAP', route('ncrs.show', $this->ncr->id))
-            ->line('Mandatory CAP submission is required before the specified deadline.');
-    }
-
-    public function toArray(object $notifiable): array
+    public function defaultTemplate(): array
     {
         return [
-            'ncr_id' => $this->ncr->id,
-            'reference' => $this->ncr->reference,
-            'level' => $this->ncr->level,
-            'message' => "Non-Conformance Report {$this->ncr->reference} (Level {$this->ncr->level}) raised for your unit.",
-            'url' => route('ncrs.show', $this->ncr->id),
-            'type' => 'ncr_raised',
+            'email' => true,
+            'in_app' => true,
+            'subject' => 'Action Required: Level {level} NCR Raised - {ncr_ref}',
+            'body' => "A Level {level} Non-Conformance Report ({ncr_ref}) was issued for {audit_title}.\nRequirement ref: {requirement_ref}.\nCAP Submission Due Date: {due_date}.",
         ];
+    }
+
+    public function placeholderData(object $notifiable): array
+    {
+        return [
+            'ncr_ref' => $this->finding->reference ?: $this->finding->finding_number,
+            'level' => $this->finding->level,
+            'audit_title' => $this->finding->audit?->title ?? 'N/A',
+            'requirement_ref' => $this->finding->requirement_ref ?? 'N/A',
+            'due_date' => $this->finding->cap_due_at?->format('M d, Y') ?? 'N/A',
+        ];
+    }
+
+    public function targetUrl(object $notifiable): string
+    {
+        return route('ncrs.show', $this->finding->id);
     }
 }

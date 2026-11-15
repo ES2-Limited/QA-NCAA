@@ -4,46 +4,46 @@ namespace App\Notifications;
 
 use App\Models\Process;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class RoutineAuditDue extends Notification
+class RoutineAuditDue extends BaseNotification
 {
     use Queueable;
 
+    public int $daysUntilDue;
+
     public function __construct(
         public Process $process,
-        public int $daysUntilDue
-    ) {}
-
-    public function via(object $notifiable): array
-    {
-        return ['database', 'mail'];
+        public int $daysRemaining
+    ) {
+        $this->daysUntilDue = $daysRemaining;
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function eventKey(): string
     {
-        $dueStr = $this->process->next_due_at ? $this->process->next_due_at->format('M d, Y') : 'soon';
-
-        return (new MailMessage)
-            ->subject("Routine Audit Due in {$this->daysUntilDue} Days: {$this->process->name}")
-            ->line("The routine audit for \"{$this->process->name}\" is due on {$dueStr} (in {$this->daysUntilDue} days).")
-            ->action('View Process Template', route('processes.show', $this->process->id))
-            ->line('Please ensure auditor teams and documentation are prepared before the scheduled audit date.');
+        return 'routine_due';
     }
 
-    public function toArray(object $notifiable): array
+    public function defaultTemplate(): array
     {
-        $dueStr = $this->process->next_due_at ? $this->process->next_due_at->format('M d, Y') : 'soon';
-
         return [
-            'process_id' => $this->process->id,
-            'process_name' => $this->process->name,
-            'days_until_due' => $this->daysUntilDue,
-            'due_date' => $dueStr,
-            'message' => "Routine audit for \"{$this->process->name}\" is due in {$this->daysUntilDue} days ({$dueStr}).",
-            'url' => route('processes.show', $this->process->id),
-            'type' => 'routine_audit_due',
+            'email' => true,
+            'in_app' => true,
+            'subject' => 'Quality Routine Audit Due in {days_remaining} Days: {process_name}',
+            'body' => "Recurring quality audit procedure {process_name} is due on {due_date} ({days_remaining} days remaining).\nPlease schedule the required field inspection engagement.",
         ];
+    }
+
+    public function placeholderData(object $notifiable): array
+    {
+        return [
+            'process_name' => $this->process->name,
+            'due_date' => $this->process->next_due_at?->format('M d, Y') ?? 'N/A',
+            'days_remaining' => $this->daysRemaining,
+        ];
+    }
+
+    public function targetUrl(object $notifiable): string
+    {
+        return route('processes.show', $this->process->id);
     }
 }

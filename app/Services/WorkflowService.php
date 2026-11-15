@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\Audit;
 use App\Models\AuditApproval;
+use App\Models\User;
 use App\Models\WorkflowStep;
+use App\Notifications\ApprovalNeeded;
+use App\Notifications\CertificateIssued;
 use Database\Seeders\WorkflowStepSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
@@ -157,11 +160,25 @@ class WorkflowService
 
         $audit->update($updateData);
 
-        // If this is the final step, generate the certificate
+        // If this is the final step, generate the certificate and notify
         $cert = null;
         if ($isFinal) {
             $generator = app(CertificateGenerator::class);
             $cert = $generator->generate($audit, $user->id);
+
+            // Notify lead auditor
+            if ($audit->leadAuditor) {
+                $audit->leadAuditor->notify(new CertificateIssued($audit, $cert));
+            }
+        } else {
+            // Next step requires approval -> notify next step stakeholders
+            $nextStep = $this->getNextStep($step);
+            if ($nextStep) {
+                $users = User::permission('approvals.endorse')->orWhereHas('roles', fn ($q) => $q->where('name', $nextStep->role))->get();
+                foreach ($users as $u) {
+                    $u->notify(new ApprovalNeeded($audit, $nextStep));
+                }
+            }
         }
 
         return [

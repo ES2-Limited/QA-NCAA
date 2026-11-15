@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\AiService;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -17,35 +18,68 @@ class GeminiAiService implements AiService, AiServiceInterface
     }
 
     /**
-     * Generate aviation QA checklist questions using Gemini API.
+     * Resolve whether AI is globally enabled and fetch key and model.
+     */
+    protected function getAiConfig(): array
+    {
+        $enabled = (bool) setting('ai.enabled', true);
+        $model = setting('ai.model', config('services.gemini.model', 'gemini-2.5-flash'));
+
+        $encryptedKey = setting('ai.api_key', '');
+        $apiKey = '';
+
+        if (! empty($encryptedKey)) {
+            try {
+                $apiKey = Crypt::decryptString($encryptedKey);
+            } catch (Throwable) {
+                $apiKey = $encryptedKey;
+            }
+        }
+
+        if (empty($apiKey)) {
+            $apiKey = config('services.gemini.key');
+        }
+
+        return [
+            'enabled' => $enabled,
+            'model' => $model,
+            'api_key' => $apiKey,
+        ];
+    }
+
+    /**
+     * Generate aviation QA checklist questions using Gemini API or configured prompt template.
      */
     public function generateChecklist(string $requirementText, string $scope, int $count = 8): array
     {
-        $apiKey = config('services.gemini.key');
-        $model = config('services.gemini.model', 'gemini-2.5-flash');
+        $config = $this->getAiConfig();
 
-        if (empty($apiKey)) {
-            Log::info('GeminiAiService: GEMINI_API_KEY is not set. Falling back to FakeAiService.');
+        if (! $config['enabled'] || empty($config['api_key'])) {
+            Log::info('GeminiAiService: AI is disabled or GEMINI_API_KEY is not set. Falling back to FakeAiService.');
 
             return $this->fallback->generateChecklist($requirementText, $scope, $count);
         }
 
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$config['model']}:generateContent";
 
-        $prompt = "You are an aviation quality assurance auditor for the Nigeria Civil Aviation Authority.\n"
-            ."From the requirement document below, write {$count} audit checklist questions for this\n"
-            ."scope: {$scope}. Each question must check ONE verifiable requirement.\n"
+        $defaultTemplate = "You are an aviation quality assurance auditor for the Nigeria Civil Aviation Authority.\n"
+            ."From the requirement document below, write {count} audit checklist questions for this scope: {scope}. Each question must check ONE verifiable requirement.\n"
             ."Return ONLY a JSON array. Each item:\n"
-            ."{\"question\": string, \"type\": \"checkbox\"|\"radio\"|\"text\",\n"
-            ." \"options\": string[] (radio: [\"Compliant\",\"Non-compliant\",\"N/A\"]; text: []),\n"
-            ." \"requirement_ref\": string (clause/section from the document),\n"
-            ." \"guidance\": string (what evidence the auditor should look for)}\n"
+            ."{\"question\": string, \"type\": \"checkbox\"|\"radio\"|\"text\", \"options\": string[] (radio: [\"Compliant\",\"Non-compliant\",\"N/A\"]; text: []), \"requirement_ref\": string, \"guidance\": string}\n"
             ."Requirement document:\n"
-            ."\"\"\"{$requirementText}\"\"\"";
+            .'"""{requirement_text}"""';
+
+        $template = setting('ai.prompts.checklist_generation', $defaultTemplate);
+
+        $prompt = str_replace(
+            ['{count}', '{scope}', '{requirement_text}'],
+            [$count, $scope, $requirementText],
+            $template
+        );
 
         try {
             $response = Http::withHeaders([
-                'x-goog-api-key' => $apiKey,
+                'x-goog-api-key' => $config['api_key'],
             ])->timeout(60)->post($url, [
                 'contents' => [
                     [
@@ -55,74 +89,69 @@ class GeminiAiService implements AiService, AiServiceInterface
                     ],
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.3,
+                    'temperature' => 0.2,
                     'responseMimeType' => 'application/json',
                 ],
             ]);
 
-            if (! $response->successful()) {
+            if ($response->failed()) {
                 Log::warning('GeminiAiService: generateChecklist HTTP error: '.$response->status().' - '.$response->body());
 
                 return $this->fallback->generateChecklist($requirementText, $scope, $count);
             }
 
-            $json = $response->json();
-            $rawContent = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+            $data = $response->json();
+            $rawContent = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-            $decoded = json_decode($rawContent, true);
+            if (empty($rawContent)) {
+                return $this->fallback->generateChecklist($requirementText, $scope, $count);
+            }
 
-            // Handle potential wrapped structures (e.g. {"questions": [...]} or pure [...])
-            $items = is_array($decoded) && isset($decoded['questions']) && is_array($decoded['questions'])
-                ? $decoded['questions']
-                : $decoded;
+            $cleaned = trim($rawContent);
+            if (str_starts_with($cleaned, '```json')) {
+                $cleaned = substr($cleaned, 7);
+            }
+            if (str_starts_with($cleaned, '```')) {
+                $cleaned = substr($cleaned, 3);
+            }
+            if (str_ends_with($cleaned, '```')) {
+                $cleaned = substr($cleaned, 0, -3);
+            }
+            $cleaned = trim($cleaned);
 
-            if (! is_array($items)) {
+            $parsed = json_decode($cleaned, true);
+
+            if (! is_array($parsed)) {
                 Log::warning('GeminiAiService: Invalid JSON response format from Gemini: '.$rawContent);
 
                 return $this->fallback->generateChecklist($requirementText, $scope, $count);
             }
 
-            $validated = [];
-            foreach ($items as $item) {
-                if (! is_array($item) || empty($item['question']) || ! is_string($item['question'])) {
+            $output = [];
+            foreach ($parsed as $item) {
+                if (! isset($item['question'])) {
                     continue;
                 }
 
-                $type = strtolower(trim((string) ($item['type'] ?? 'radio')));
-                if (! in_array($type, ['checkbox', 'radio', 'text'])) {
-                    $type = 'radio';
-                }
-
-                $options = null;
-                if ($type === 'radio') {
-                    $options = ! empty($item['options']) && is_array($item['options'])
-                        ? array_values(array_filter($item['options'], 'is_string'))
-                        : ['Compliant', 'Non-compliant', 'N/A'];
-                } elseif ($type === 'checkbox') {
-                    $options = ! empty($item['options']) && is_array($item['options'])
-                        ? array_values(array_filter($item['options'], 'is_string'))
-                        : ['Verified', 'Not Verified'];
-                } elseif ($type === 'text') {
-                    $options = [];
-                }
-
-                $validated[] = [
-                    'question' => trim($item['question']),
-                    'type' => $type,
-                    'options' => $options,
-                    'requirement_ref' => ! empty($item['requirement_ref']) ? trim((string) $item['requirement_ref']) : null,
-                    'guidance' => ! empty($item['guidance']) ? trim((string) $item['guidance']) : null,
+                $output[] = [
+                    'question' => (string) $item['question'],
+                    'type' => in_array($item['type'] ?? '', ['radio', 'checkbox', 'text']) ? $item['type'] : 'radio',
+                    'options' => isset($item['options']) && is_array($item['options'])
+                        ? array_values(array_map('strval', $item['options']))
+                        : ['Compliant', 'Non-compliant', 'N/A'],
+                    'requirement_ref' => (string) ($item['requirement_ref'] ?? ''),
+                    'guidance' => (string) ($item['guidance'] ?? ''),
                     'source' => 'ai',
                 ];
             }
 
-            if (empty($validated)) {
+            if (empty($output)) {
                 Log::warning('GeminiAiService: No valid checklist questions extracted from Gemini response.');
 
                 return $this->fallback->generateChecklist($requirementText, $scope, $count);
             }
 
-            return $validated;
+            return array_slice($output, 0, $count);
         } catch (Throwable $e) {
             Log::warning('GeminiAiService: Exception in generateChecklist: '.$e->getMessage(), [
                 'exception' => $e,
@@ -137,24 +166,26 @@ class GeminiAiService implements AiService, AiServiceInterface
      */
     public function summariseAudit(string $auditContext): string
     {
-        $apiKey = config('services.gemini.key');
-        $model = config('services.gemini.model', 'gemini-2.5-flash');
+        $config = $this->getAiConfig();
 
-        if (empty($apiKey)) {
-            Log::info('GeminiAiService: GEMINI_API_KEY is not set. Falling back to FakeAiService.');
+        if (! $config['enabled'] || empty($config['api_key'])) {
+            Log::info('GeminiAiService: AI is disabled or GEMINI_API_KEY is not set. Falling back to FakeAiService.');
 
             return $this->fallback->summariseAudit($auditContext);
         }
 
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$config['model']}:generateContent";
 
-        $prompt = "Write a clear, formal audit summary for the Director of Special\n"
-            ."Duties, NCAA, in 3 short paragraphs: scope and overall result, key non-compliances,\n"
-            ."recommended actions. Audit data: {$auditContext}";
+        $defaultTemplate = "You are an executive aviation safety analyst for the Nigeria Civil Aviation Authority.\n"
+            ."Summarise the audit findings below in 3 concise bullet points for the Director of Special Duties, highlighting critical risks, overall compliance status, and required containment actions.\n"
+            ."Audit details:\n\"\"\"{audit_context}\"\"\"";
+
+        $template = setting('ai.prompts.audit_summary', $defaultTemplate);
+        $prompt = str_replace('{audit_context}', $auditContext, $template);
 
         try {
             $response = Http::withHeaders([
-                'x-goog-api-key' => $apiKey,
+                'x-goog-api-key' => $config['api_key'],
             ])->timeout(60)->post($url, [
                 'contents' => [
                     [
@@ -168,22 +199,22 @@ class GeminiAiService implements AiService, AiServiceInterface
                 ],
             ]);
 
-            if (! $response->successful()) {
+            if ($response->failed()) {
                 Log::warning('GeminiAiService: summariseAudit HTTP error: '.$response->status().' - '.$response->body());
 
                 return $this->fallback->summariseAudit($auditContext);
             }
 
-            $json = $response->json();
-            $text = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
+            $data = $response->json();
+            $summary = trim($data['candidates'][0]['content']['parts'][0]['text'] ?? '');
 
-            if (empty($text)) {
+            if (empty($summary)) {
                 Log::warning('GeminiAiService: Empty summary response from Gemini.');
 
                 return $this->fallback->summariseAudit($auditContext);
             }
 
-            return $text;
+            return $summary;
         } catch (Throwable $e) {
             Log::warning('GeminiAiService: Exception in summariseAudit: '.$e->getMessage(), [
                 'exception' => $e,
@@ -194,29 +225,31 @@ class GeminiAiService implements AiService, AiServiceInterface
     }
 
     /**
-     * Generate an executive QA & internal audit management report using Gemini API.
+     * Generate an executive Markdown management report using Gemini API.
      */
     public function generateReport(string $context): string
     {
-        $apiKey = config('services.gemini.key');
-        $model = config('services.gemini.model', 'gemini-2.5-flash');
+        $config = $this->getAiConfig();
 
-        if (empty($apiKey)) {
-            Log::info('GeminiAiService: GEMINI_API_KEY is not set. Falling back to FakeAiService.');
+        if (! $config['enabled'] || empty($config['api_key'])) {
+            Log::info('GeminiAiService: AI is disabled or GEMINI_API_KEY is not set. Falling back to FakeAiService.');
 
             return $this->fallback->generateReport($context);
         }
 
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$config['model']}:generateContent";
 
-        $prompt = 'Write a concise management report for the Director of Special Duties, NCAA: '
-            .'overview, key risks, recurring non-compliances, overdue actions, recommendations. '
-            ."Use short headings and bullet points. Data: {$context}";
+        $defaultTemplate = "You are a senior aviation quality assurance director. Draft a formal executive audit report for NCAA Director of Special Duties and Department Heads.\n"
+            ."Include Executive Summary, Directorate Conformance Overview, Top Non-Conformance Areas, and Recommendations.\n"
+            ."Audit data:\n\"\"\"{context}\"\"\"";
+
+        $template = setting('ai.prompts.management_report', $defaultTemplate);
+        $prompt = str_replace('{context}', $context, $template);
 
         try {
             $response = Http::withHeaders([
-                'x-goog-api-key' => $apiKey,
-            ])->timeout(60)->post($url, [
+                'x-goog-api-key' => $config['api_key'],
+            ])->timeout(90)->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -225,26 +258,26 @@ class GeminiAiService implements AiService, AiServiceInterface
                     ],
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.3,
+                    'temperature' => 0.4,
                 ],
             ]);
 
-            if (! $response->successful()) {
+            if ($response->failed()) {
                 Log::warning('GeminiAiService: generateReport HTTP error: '.$response->status().' - '.$response->body());
 
                 return $this->fallback->generateReport($context);
             }
 
-            $json = $response->json();
-            $text = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
+            $data = $response->json();
+            $report = trim($data['candidates'][0]['content']['parts'][0]['text'] ?? '');
 
-            if (empty($text)) {
+            if (empty($report)) {
                 Log::warning('GeminiAiService: Empty report response from Gemini.');
 
                 return $this->fallback->generateReport($context);
             }
 
-            return $text;
+            return $report;
         } catch (Throwable $e) {
             Log::warning('GeminiAiService: Exception in generateReport: '.$e->getMessage(), [
                 'exception' => $e,

@@ -4,10 +4,8 @@ namespace App\Notifications;
 
 use App\Models\CorrectiveActionPlan;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class CapSubmitted extends Notification
+class CapSubmitted extends BaseNotification
 {
     use Queueable;
 
@@ -15,35 +13,33 @@ class CapSubmitted extends Notification
         public CorrectiveActionPlan $cap
     ) {}
 
-    public function via(object $notifiable): array
+    public function eventKey(): string
     {
-        return ['database', 'mail'];
+        return 'cap_submitted';
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function defaultTemplate(): array
     {
-        $ncr = $this->cap->ncr;
-
-        return (new MailMessage)
-            ->subject("Corrective Action Plan Submitted: {$ncr?->reference}")
-            ->line("A Corrective Action Plan (CAP) has been submitted for {$ncr?->reference}.")
-            ->line("Root Cause: {$this->cap->root_cause}")
-            ->line("Proposed Action: {$this->cap->description}")
-            ->action('Review CAP Submission', route('ncrs.show', $ncr?->id))
-            ->line('Please review the containment actions and record your approval/rejection.');
-    }
-
-    public function toArray(object $notifiable): array
-    {
-        $ncr = $this->cap->ncr;
-
         return [
-            'cap_id' => $this->cap->id,
-            'ncr_id' => $ncr?->id,
-            'reference' => $ncr?->reference,
-            'message' => "CAP submitted for NCR {$ncr?->reference} by {$this->cap->submitter?->name}.",
-            'url' => route('ncrs.show', $ncr?->id),
-            'type' => 'cap_submitted',
+            'email' => true,
+            'in_app' => true,
+            'subject' => 'Corrective Action Plan Submitted for NCR {ncr_ref}',
+            'body' => "A Corrective Action Plan for NCR {ncr_ref} was submitted by {submitted_by} on {submission_date}.\nPlease review the root cause analysis and proposed containment measures.",
         ];
+    }
+
+    public function placeholderData(object $notifiable): array
+    {
+        return [
+            'ncr_ref' => $this->cap->finding?->reference ?: $this->cap->finding?->finding_number ?? 'N/A',
+            'submitted_by' => $this->cap->submitter?->name ?? 'Auditee',
+            'submission_date' => $this->cap->submitted_at?->format('M d, Y') ?? now()->format('M d, Y'),
+            'audit_title' => $this->cap->finding?->audit?->title ?? 'N/A',
+        ];
+    }
+
+    public function targetUrl(object $notifiable): string
+    {
+        return route('ncrs.show', $this->cap->finding_id);
     }
 }

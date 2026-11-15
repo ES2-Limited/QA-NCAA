@@ -4,10 +4,8 @@ namespace App\Notifications;
 
 use App\Models\CorrectiveActionPlan;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class CapReviewed extends Notification
+class CapReviewed extends BaseNotification
 {
     use Queueable;
 
@@ -15,35 +13,34 @@ class CapReviewed extends Notification
         public CorrectiveActionPlan $cap
     ) {}
 
-    public function via(object $notifiable): array
+    public function eventKey(): string
     {
-        return ['database', 'mail'];
+        return 'cap_reviewed';
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function defaultTemplate(): array
     {
-        $ncr = $this->cap->ncr;
-        $statusText = strtoupper($this->cap->status);
-
-        return (new MailMessage)
-            ->subject("Corrective Action Plan Review: {$statusText} for {$ncr?->reference}")
-            ->line("Your Corrective Action Plan for {$ncr?->reference} has been marked as {$statusText}.")
-            ->line("Reviewer Remark: {$this->cap->reviewer_comment}")
-            ->action('View NCR Details', route('ncrs.show', $ncr?->id));
-    }
-
-    public function toArray(object $notifiable): array
-    {
-        $ncr = $this->cap->ncr;
-
         return [
-            'cap_id' => $this->cap->id,
-            'ncr_id' => $ncr?->id,
-            'reference' => $ncr?->reference,
-            'status' => $this->cap->status,
-            'message' => "CAP for NCR {$ncr?->reference} was {$this->cap->status} by reviewer.",
-            'url' => route('ncrs.show', $ncr?->id),
-            'type' => 'cap_reviewed',
+            'email' => true,
+            'in_app' => true,
+            'subject' => 'CAP Decision: NCR {ncr_ref} Plan {status}',
+            'body' => "Your Corrective Action Plan for NCR {ncr_ref} was {status} by the quality reviewer on {review_date}.\nReviewer notes: {comments}.",
         ];
+    }
+
+    public function placeholderData(object $notifiable): array
+    {
+        return [
+            'ncr_ref' => $this->cap->finding?->reference ?: $this->cap->finding?->finding_number ?? 'N/A',
+            'status' => strtoupper($this->cap->status),
+            'review_date' => $this->cap->reviewed_at?->format('M d, Y') ?? now()->format('M d, Y'),
+            'comments' => $this->cap->review_notes ?: 'No additional notes provided.',
+            'audit_title' => $this->cap->finding?->audit?->title ?? 'N/A',
+        ];
+    }
+
+    public function targetUrl(object $notifiable): string
+    {
+        return route('ncrs.show', $this->cap->finding_id);
     }
 }
