@@ -39,12 +39,20 @@ class AuditAssigned extends Notification
             ? $this->audit->scheduled_for->format('M d, Y')
             : ($this->audit->start_date ? $this->audit->start_date->format('M d, Y') : 'Today');
 
+        $isFieldOnly = method_exists($notifiable, 'hasRole')
+            && $notifiable->hasRole('field_auditor')
+            && $notifiable->roles()->count() === 1;
+
+        $targetUrl = $isFieldOnly
+            ? route('field.audit', $this->audit->id)
+            : route('audits.show', $this->audit->id);
+
         return [
             'audit_id' => $this->audit->id,
             'title' => $this->audit->title,
             'scheduled_for' => $dateStr,
             'message' => "You've been added to audit {$this->audit->title} scheduled for {$dateStr}.",
-            'url' => route('audits.show', $this->audit->id),
+            'url' => $targetUrl,
             'type' => 'audit_assigned',
         ];
     }

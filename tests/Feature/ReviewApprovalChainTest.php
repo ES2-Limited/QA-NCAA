@@ -301,14 +301,14 @@ test('approval chain: Head endorses and Director certifies generating signed PDF
 test('access controls protect review and approvals routes from unauthorized roles', function () {
     $f = createReviewChainFixture();
 
-    // Field auditor cannot access review or approvals
+    // Field auditor cannot access review or approvals (redirected to field mobile)
     $this->actingAs($f['fieldAuditor'])
         ->get(route('review.index'))
-        ->assertForbidden();
+        ->assertRedirect(route('field.index'));
 
     $this->actingAs($f['fieldAuditor'])
         ->get(route('approvals.index'))
-        ->assertForbidden();
+        ->assertRedirect(route('field.index'));
 
     // Reviewer only sees audits assigned to them
     $otherReviewer = User::factory()->create();

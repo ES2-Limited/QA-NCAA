@@ -119,12 +119,13 @@ test('running routine-alerts command twice does not duplicate anything on same d
     expect($auditCountAfterSecondRun)->toBe($auditCountAfterFirstRun);
 });
 
-test('field_auditor gets 403 on /audits list and show pages', function () {
+test('field_auditor gets redirected or 403 on /audits list and show pages', function () {
     $fieldAuditor = User::where('email', 'auditor@ncaa.gov.ng')->first();
     $audit = Audit::first();
 
     $this->actingAs($fieldAuditor);
 
-    $this->get('/audits')->assertStatus(403);
-    $this->get("/audits/{$audit->id}")->assertStatus(403);
+    // Enforced mobile layout redirects field auditor back to /field
+    $this->get('/audits')->assertRedirect(route('field.index'));
+    $this->get("/audits/{$audit->id}")->assertRedirect(route('field.index'));
 });

@@ -22,9 +22,11 @@ Route::get('/', function () {
         if ($user->hasRole('auditee')) {
             return redirect()->route('ncrs.index');
         }
+
+        return redirect()->route('dashboard');
     }
 
-    return redirect()->route('dashboard');
+    return redirect()->route('login');
 })->name('home');
 
 Route::middleware(['auth'])->group(function () {

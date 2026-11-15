@@ -36,14 +36,14 @@ test('lead_auditor can upload a PDF document', function () {
     expect(Storage::disk('local')->exists($doc->file_path))->toBeTrue();
 });
 
-test('field_auditor gets 403 on document library routes', function () {
+test('field_auditor cannot access document library routes and is redirected to field', function () {
     $fieldAuditor = User::where('email', 'auditor@ncaa.gov.ng')->first();
     expect($fieldAuditor)->not->toBeNull();
 
     $this->actingAs($fieldAuditor);
 
     $response = $this->get('/admin/documents');
-    $response->assertStatus(403);
+    $response->assertRedirect(route('field.index'));
 });
 
 test('a non-PDF/DOCX file is rejected during upload', function () {

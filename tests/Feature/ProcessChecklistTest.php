@@ -82,14 +82,14 @@ test('activating process without questions fails validation', function () {
     ]);
 });
 
-test('field_auditor gets 403 on /processes', function () {
+test('field_auditor is redirected to field on /processes', function () {
     $fieldAuditor = User::where('email', 'auditor@ncaa.gov.ng')->first();
     expect($fieldAuditor)->not->toBeNull();
 
     $this->actingAs($fieldAuditor);
 
     $response = $this->get('/processes');
-    $response->assertStatus(403);
+    $response->assertRedirect(route('field.index'));
 });
 
 test('AI generate returns draft questions via FakeAiService', function () {

@@ -38,12 +38,20 @@ class AuditSubmitted extends Notification
     {
         $submitterName = $this->submittedBy ? $this->submittedBy->name : 'Field Auditor';
 
+        $isFieldOnly = method_exists($notifiable, 'hasRole')
+            && $notifiable->hasRole('field_auditor')
+            && $notifiable->roles()->count() === 1;
+
+        $targetUrl = $isFieldOnly
+            ? route('field.audit', $this->audit->id)
+            : route('audits.show', $this->audit->id);
+
         return [
             'audit_id' => $this->audit->id,
             'title' => $this->audit->title,
             'submitted_by' => $submitterName,
             'message' => "Audit {$this->audit->title} has been submitted by {$submitterName} for review.",
-            'url' => route('audits.show', $this->audit->id),
+            'url' => $targetUrl,
             'type' => 'audit_submitted',
         ];
     }

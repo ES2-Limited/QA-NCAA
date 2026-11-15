@@ -44,16 +44,16 @@
             @php
                 $unread = auth()->user()?->unreadNotifications()->count() ?? 0;
             @endphp
-            <div class="flex flex-col items-center py-1 px-3 text-xs font-semibold rounded-xl text-zinc-500 dark:text-zinc-400 relative">
+            <a href="{{ route('field.notifications') }}" wire:navigate class="flex flex-col items-center py-1 px-3 text-xs font-semibold rounded-xl transition relative {{ request()->routeIs('field.notifications') ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400' }}">
                 <flux:icon name="bell" class="size-5 mb-0.5" />
                 @if($unread > 0)
                     <span class="absolute top-1 right-4 w-2 h-2 rounded-full bg-rose-500"></span>
                 @endif
                 <span>Alerts</span>
-            </div>
+            </a>
 
             <!-- Profile / Settings -->
-            <a href="{{ route('profile.edit') }}" wire:navigate class="flex flex-col items-center py-1 px-3 text-xs font-semibold rounded-xl transition {{ request()->routeIs('profile.edit') ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400' }}">
+            <a href="{{ route('field.profile') }}" wire:navigate class="flex flex-col items-center py-1 px-3 text-xs font-semibold rounded-xl transition {{ request()->routeIs('field.profile') ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400' }}">
                 <flux:icon name="user" class="size-5 mb-0.5" />
                 <span>Profile</span>
             </a>
