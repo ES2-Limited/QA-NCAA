@@ -125,7 +125,7 @@ test('evidence upload is stored and linked polymorphically to audit answer', fun
 
     $uploaded = $answer->attachments->where('original_name', 'fuel_bowser_meter.jpg')->first();
     expect($uploaded)->not->toBeNull();
-    expect(Storage::disk('public')->exists($uploaded->path))->toBeTrue();
+    expect(Storage::disk('local')->exists($uploaded->path))->toBeTrue();
     expect($uploaded->mime_type)->toContain('image');
 });
 

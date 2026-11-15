@@ -135,8 +135,54 @@ new #[Title('NCAA Users Admin')] class extends Component {
             </flux:button>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700 text-left text-sm">
+        <!-- Users List: Stacked Cards on Mobile (<768px), Table on Desktop (>=768px) -->
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800 shadow-xs">
+            <!-- Mobile Stacked Cards (< md) -->
+            <div class="block md:hidden divide-y divide-zinc-200 dark:divide-zinc-700">
+                @forelse($users as $u)
+                    <div class="p-4 space-y-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{{ $u->name }}</div>
+                                <div class="text-xs text-zinc-500">{{ $u->email }}</div>
+                            </div>
+                            <div>
+                                @forelse($u->roles as $role)
+                                    <flux:badge size="sm" :color="$role->name === 'system_admin' ? 'emerald' : ($role->name === 'lead_auditor' ? 'amber' : 'zinc')">
+                                        {{ str_replace('_', ' ', $role->name) }}
+                                    </flux:badge>
+                                @empty
+                                    <flux:badge size="sm" color="zinc">user</flux:badge>
+                                @endforelse
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <span class="font-mono text-zinc-500">{{ $u->staff_id ? 'ID: '.$u->staff_id : '' }}</span>
+                            <span class="text-zinc-400">&bull;</span>
+                            <span class="font-semibold">{{ $u->directorate->code ?? 'N/A' }}</span>
+                            @if($u->dept)
+                                <span class="text-zinc-500">&bull; {{ $u->dept->name }}</span>
+                            @endif
+                        </div>
+
+                        <div class="flex items-center justify-end gap-1 pt-2 border-t border-zinc-100 dark:border-zinc-700/50">
+                            <flux:button wire:click="edit({{ $u->id }})" size="xs" variant="ghost">Edit</flux:button>
+                            @if($u->id !== auth()->id())
+                                <flux:button wire:click="delete({{ $u->id }})" wire:confirm="Are you sure you want to delete this user?" size="xs" variant="danger">Delete</flux:button>
+                            @endif
+                        </div>
+                    </div>
+                @empty
+                    <div class="px-4 py-8 text-center text-zinc-500 text-xs">
+                        No users found.
+                    </div>
+                @endforelse
+            </div>
+
+            <!-- Desktop Table (>= md) -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700 text-left text-sm">
                 <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-semibold uppercase text-zinc-500">
                     <tr>
                         <th class="px-4 py-3">Staff</th>

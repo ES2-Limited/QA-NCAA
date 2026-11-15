@@ -108,9 +108,65 @@ new #[Title('Quality Audits Registry')] class extends Component {
         </div>
     </div>
 
-    <!-- Audits Table -->
+    <!-- Audits List: Stacked Cards on Mobile (<768px), Table on Desktop (>=768px) -->
     <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
+        <!-- Mobile Stacked Cards (< md) -->
+        <div class="block md:hidden divide-y divide-zinc-200 dark:divide-zinc-700">
+            @forelse($audits as $audit)
+                @php
+                    $badgeColor = match ($audit->status) {
+                        'scheduled' => 'zinc',
+                        'in_progress' => 'amber',
+                        'submitted' => 'cyan',
+                        'reviewed' => 'blue',
+                        'head_approved' => 'indigo',
+                        'director_approved' => 'emerald',
+                        'returned' => 'rose',
+                        default => 'zinc',
+                    };
+                @endphp
+                <div class="p-4 space-y-3 hover:bg-zinc-50/80 dark:hover:bg-zinc-750 transition cursor-pointer" onclick="window.location='{{ route('audits.show', $audit->id) }}'">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                                {{ $audit->title }}
+                            </div>
+                            <div class="text-xs text-zinc-500 font-mono mt-0.5">
+                                {{ $audit->reference_number }}
+                            </div>
+                        </div>
+                        <flux:badge size="sm" :color="$badgeColor">
+                            {{ ucwords(str_replace('_', ' ', $audit->status)) }}
+                        </flux:badge>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-700/50">
+                        <div>
+                            <span class="text-zinc-400 block text-[10px] uppercase font-semibold">Directorate</span>
+                            <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $audit->directorate->code ?? 'DSD' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-zinc-400 block text-[10px] uppercase font-semibold">Scheduled Date</span>
+                            <span class="font-mono">{{ $audit->scheduled_for ? $audit->scheduled_for->format('M d, Y') : ($audit->start_date ? $audit->start_date->format('M d, Y') : '—') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-xs text-zinc-500">Lead: {{ $audit->leadAuditor->name ?? 'Lead Auditor' }}</span>
+                        <flux:button href="{{ route('audits.show', $audit->id) }}" size="xs" variant="ghost" icon="eye" wire:navigate onclick="event.stopPropagation()">
+                            View
+                        </flux:button>
+                    </div>
+                </div>
+            @empty
+                <div class="py-8 text-center text-zinc-500 text-xs">
+                    No audits matching the selected filter.
+                </div>
+            @endforelse
+        </div>
+
+        <!-- Desktop Table (>= md) -->
+        <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-left text-sm divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs text-zinc-500 font-semibold uppercase">
                     <tr>

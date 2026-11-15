@@ -91,8 +91,8 @@ new #[Title('NCAA Document Library')] class extends Component {
         $mimeType = $this->file->getMimeType();
         $size = $this->file->getSize();
 
-        // Store file on public disk under documents/
-        $path = $this->file->store('documents', 'public');
+        // Store file on private local disk under documents/
+        $path = $this->file->store('documents', 'local');
 
         Document::create([
             'title' => $this->title,
@@ -134,7 +134,9 @@ new #[Title('NCAA Document Library')] class extends Component {
     {
         $doc = Document::findOrFail($id);
 
-        if ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {
+        if ($doc->file_path && Storage::disk('local')->exists($doc->file_path)) {
+            Storage::disk('local')->delete($doc->file_path);
+        } elseif ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {
             Storage::disk('public')->delete($doc->file_path);
         }
 
@@ -242,9 +244,56 @@ new #[Title('NCAA Document Library')] class extends Component {
             </div>
         </div>
 
-        <!-- Documents Table -->
-        <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700 text-left text-sm">
+        <!-- Documents List: Stacked Cards on Mobile (<768px), Table on Desktop (>=768px) -->
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800 shadow-xs">
+            <!-- Mobile Stacked Cards (< md) -->
+            <div class="block md:hidden divide-y divide-zinc-200 dark:divide-zinc-700">
+                @forelse($documents as $doc)
+                    <div class="p-4 space-y-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm flex items-center space-x-1.5">
+                                    <span class="text-emerald-600 dark:text-emerald-400 font-mono text-xs uppercase px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 rounded border border-emerald-200 dark:border-emerald-800">
+                                        {{ str_contains($doc->mime_type, 'pdf') ? 'PDF' : 'DOCX' }}
+                                    </span>
+                                    <span>{{ $doc->title }}</span>
+                                </div>
+                                <div class="text-xs text-zinc-500 mt-0.5 truncate max-w-xs">{{ $doc->original_name }}</div>
+                            </div>
+                            <span class="font-mono text-xs text-zinc-500 shrink-0">{{ $this->formatBytes($doc->size) }}</span>
+                        </div>
+
+                        <div class="text-xs text-zinc-600 dark:text-zinc-400">
+                            @if($doc->unit)
+                                <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $doc->unit->name }}</span>
+                                <span class="text-zinc-400">&bull;</span> {{ $doc->unit->department->code ?? '' }}
+                            @else
+                                <span class="text-zinc-400 italic">General / Unassigned</span>
+                            @endif
+                        </div>
+
+                        <div class="flex items-center justify-end gap-1 pt-2 border-t border-zinc-100 dark:border-zinc-700/50">
+                            <flux:button href="{{ route('admin.documents.download', $doc->id) }}" size="xs" variant="ghost" icon="arrow-down-tray">
+                                Download
+                            </flux:button>
+                            <flux:button wire:click="openEditModal({{ $doc->id }})" size="xs" variant="ghost">
+                                Edit
+                            </flux:button>
+                            <flux:button wire:click="deleteDocument({{ $doc->id }})" wire:confirm="Are you sure you want to permanently delete this document and file?" size="xs" variant="danger">
+                                Delete
+                            </flux:button>
+                        </div>
+                    </div>
+                @empty
+                    <div class="px-4 py-8 text-center text-zinc-500 text-xs">
+                        No documents found matching your filter criteria.
+                    </div>
+                @endforelse
+            </div>
+
+            <!-- Desktop Table (>= md) -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700 text-left text-sm">
                 <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-semibold uppercase text-zinc-500">
                     <tr>
                         <th class="px-4 py-3">Document Title</th>

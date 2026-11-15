@@ -81,9 +81,60 @@ new #[Title('Processes & Checklists')] class extends Component {
         </flux:select>
     </div>
 
-    <!-- Table -->
-    <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700 text-left text-sm">
+    <!-- Process List: Stacked Cards on Mobile (<768px), Table on Desktop (>=768px) -->
+    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800 shadow-xs">
+        <!-- Mobile Stacked Cards (< md) -->
+        <div class="block md:hidden divide-y divide-zinc-200 dark:divide-zinc-700">
+            @forelse($processes as $proc)
+                <div class="p-4 space-y-3 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <a href="{{ route('processes.show', $proc->id) }}" class="font-bold text-zinc-900 dark:text-zinc-100 text-sm hover:text-emerald-600 dark:hover:text-emerald-400" wire:navigate>
+                                {{ $proc->name }}
+                            </a>
+                            <div class="text-xs text-zinc-500 mt-0.5">
+                                {{ $proc->directorate->code ?? 'NCAA-Wide' }} &bull; {{ $proc->department->name ?? ($proc->unit->name ?? '—') }}
+                            </div>
+                        </div>
+                        <flux:badge size="sm" :color="$proc->status === 'active' ? 'emerald' : 'zinc'">
+                            {{ ucfirst($proc->status) }}
+                        </flux:badge>
+                    </div>
+
+                    @if($proc->description)
+                        <div class="text-xs text-zinc-500 line-clamp-2">{{ $proc->description }}</div>
+                    @endif
+
+                    <div class="flex items-center gap-2 text-xs">
+                        <flux:badge size="sm" :color="$proc->type === 'routine' ? 'blue' : 'amber'">
+                            {{ ucfirst($proc->type) }}
+                        </flux:badge>
+                        <span class="text-zinc-500">&bull; {{ $proc->frequency ? ucfirst($proc->frequency) : '—' }}</span>
+                        <span class="text-zinc-500">&bull; {{ $proc->questions_count }} questions</span>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-1 pt-2 border-t border-zinc-100 dark:border-zinc-700/50">
+                        <flux:button href="{{ route('processes.show', $proc->id) }}" size="xs" variant="ghost" wire:navigate>
+                            View
+                        </flux:button>
+                        <flux:button href="{{ route('processes.edit', $proc->id) }}" size="xs" variant="ghost" wire:navigate>
+                            Edit
+                        </flux:button>
+                        <flux:button wire:click="deleteProcess({{ $proc->id }})" wire:confirm="Are you sure you want to delete this process template and its checklist questions?" size="xs" variant="danger">
+                            Delete
+                        </flux:button>
+                    </div>
+                </div>
+            @empty
+                <div class="py-8 text-center text-zinc-500 text-xs">
+                    No audit processes found.
+                </div>
+            @endforelse
+        </div>
+
+        <!-- Desktop Table (>= md) -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700 text-left text-sm">
             <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-semibold uppercase text-zinc-500">
                 <tr>
                     <th class="px-4 py-3">Process Name</th>

@@ -20,8 +20,9 @@ class DocumentTextExtractor
     {
         try {
             $filePath = $document->file_path;
-            if (! Storage::disk('public')->exists($filePath)) {
-                Log::warning('DocumentTextExtractor: File does not exist on public disk', [
+            $disk = Storage::disk('local')->exists($filePath) ? 'local' : 'public';
+            if (! Storage::disk($disk)->exists($filePath)) {
+                Log::warning('DocumentTextExtractor: File does not exist on disk', [
                     'document_id' => $document->id,
                     'file_path' => $filePath,
                 ]);
@@ -29,7 +30,7 @@ class DocumentTextExtractor
                 return '';
             }
 
-            $fullPath = Storage::disk('public')->path($filePath);
+            $fullPath = Storage::disk($disk)->path($filePath);
             $mimeType = strtolower($document->mime_type ?? '');
             $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
 

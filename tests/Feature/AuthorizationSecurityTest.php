@@ -9,6 +9,7 @@ use App\Models\Unit;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -63,7 +64,7 @@ test('field auditor cannot conduct an audit they are not assigned to', function 
 });
 
 test('auditee without permissions cannot download documents from admin document library', function () {
-    Storage::fake('public');
+    Storage::fake('local');
 
     $doc = Document::create([
         'title' => 'Confidential Regulatory Manual',
@@ -73,7 +74,7 @@ test('auditee without permissions cannot download documents from admin document 
         'size' => 1024,
         'uploaded_by' => 1,
     ]);
-    Storage::disk('public')->put('documents/manual.pdf', 'dummy content');
+    Storage::disk('local')->put('documents/manual.pdf', 'dummy content');
 
     $auditee = User::where('email', 'auditee@ncaa.gov.ng')->firstOrFail();
 
@@ -81,4 +82,24 @@ test('auditee without permissions cannot download documents from admin document 
         ->get(route('admin.documents.download', $doc->id));
 
     $response->assertForbidden();
+});
+
+test('tampering with locked audit model id in Livewire component is rejected', function () {
+    $admin = User::where('email', 'admin@ncaa.gov.ng')->firstOrFail();
+    $audit1 = Audit::firstOrFail();
+
+    expect(fn () => Livewire::actingAs($admin)
+        ->test('pages::audits.show', ['audit' => $audit1])
+        ->updateProperty('audit', 9999)
+    )->toThrow(CannotUpdateLockedPropertyException::class);
+});
+
+test('tampering with locked NCR model id in Livewire component is rejected', function () {
+    $admin = User::where('email', 'admin@ncaa.gov.ng')->firstOrFail();
+    $ncr1 = Finding::firstOrFail();
+
+    expect(fn () => Livewire::actingAs($admin)
+        ->test('pages::ncrs.show', ['ncr' => $ncr1])
+        ->updateProperty('ncr', 9999)
+    )->toThrow(CannotUpdateLockedPropertyException::class);
 });

@@ -5,14 +5,16 @@ use App\Models\Audit;
 use App\Models\AuditAnswer;
 use App\Notifications\AuditSubmitted;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Execution')] class extends Component {
     use WithFileUploads;
 
+    #[Locked]
     public ?Audit $audit = null;
     public array $questions = [];
     public int $currentIndex = 0; // 0-based question pointer
@@ -132,9 +134,9 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
             ]
         );
 
-        // Process photo uploads
+        // Process photo uploads (stored on private local disk)
         foreach ($this->newPhotos as $photo) {
-            $path = $photo->store('evidence', 'public');
+            $path = $photo->store('evidence', 'local');
             $answer->attachments()->create([
                 'path' => $path,
                 'original_name' => $photo->getClientOriginalName(),
@@ -146,7 +148,7 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
 
         // Process file uploads (PDF/DOCX)
         foreach ($this->newFiles as $file) {
-            $path = $file->store('evidence', 'public');
+            $path = $file->store('evidence', 'local');
             $answer->attachments()->create([
                 'path' => $path,
                 'original_name' => $file->getClientOriginalName(),
@@ -198,7 +200,11 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
 
         $att = Attachment::find($attachmentId);
         if ($att) {
-            Storage::disk('public')->delete($att->path);
+            if (Storage::disk('local')->exists($att->path)) {
+                Storage::disk('local')->delete($att->path);
+            } elseif (Storage::disk('public')->exists($att->path)) {
+                Storage::disk('public')->delete($att->path);
+            }
             $att->delete();
             $this->audit->load('answers.attachments');
         }
@@ -551,7 +557,7 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
                                 @foreach($attachments as $att)
                                     <div class="relative group rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 p-1">
                                         @if(str_starts_with($att->mime_type, 'image/'))
-                                            <img src="{{ Storage::disk('public')->url($att->path) }}" alt="Evidence" class="w-full h-16 object-cover rounded-lg">
+                                            <img src="{{ route('attachments.show', $att->id) }}" alt="Evidence" class="w-full h-16 object-cover rounded-lg">
                                         @else
                                             <div class="w-full h-16 flex flex-col items-center justify-center text-[10px] text-zinc-600 dark:text-zinc-400 font-bold p-1">
                                                 <span>📄 FILE</span>

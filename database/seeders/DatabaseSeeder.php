@@ -273,6 +273,7 @@ class DatabaseSeeder extends Seeder
         }
 
         // 4. Document Library Sample Files & Seed Records (Seed before processes so documents can be linked)
+        Storage::disk('local')->makeDirectory('documents');
         Storage::disk('public')->makeDirectory('documents');
 
         $sampleFiles = [
@@ -296,6 +297,7 @@ class DatabaseSeeder extends Seeder
 
             if (File::exists($sourcePath)) {
                 $fileBytes = File::get($sourcePath);
+                Storage::disk('local')->put($targetStoragePath, $fileBytes);
                 Storage::disk('public')->put($targetStoragePath, $fileBytes);
                 $size = File::size($sourcePath);
                 $mimeType = 'application/pdf';
@@ -562,6 +564,7 @@ class DatabaseSeeder extends Seeder
         $abujaLng = 7.2631720;
 
         // Ensure evidence directory exists
+        Storage::disk('local')->makeDirectory('evidence');
         Storage::disk('public')->makeDirectory('evidence');
 
         // Answer 1 (Question Key 0)

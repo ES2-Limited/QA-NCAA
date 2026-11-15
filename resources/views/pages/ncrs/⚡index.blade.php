@@ -97,9 +97,77 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
         </div>
     @endif
 
-    <!-- NCR Table -->
+    <!-- NCR List: Stacked Cards on Mobile (<768px), Table on Desktop (>=768px) -->
     <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
+        <!-- Mobile Stacked Cards (< md) -->
+        <div class="block md:hidden divide-y divide-zinc-200 dark:divide-zinc-700">
+            @forelse($ncrs as $ncr)
+                @php
+                    $isOverdue = $ncr->isOverdue();
+                    $badgeColor = match ($ncr->status) {
+                        'open' => 'rose',
+                        'cap_submitted' => 'cyan',
+                        'cap_accepted' => 'emerald',
+                        'cap_rejected' => 'amber',
+                        'closed' => 'zinc',
+                        default => 'zinc',
+                    };
+                @endphp
+                <div class="p-4 space-y-3 hover:bg-zinc-50/80 dark:hover:bg-zinc-750 transition cursor-pointer" onclick="window.location='{{ route('ncrs.show', $ncr->id) }}'">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-sm">
+                                    {{ $ncr->reference ?: $ncr->finding_number }}
+                                </span>
+                                <flux:badge size="xs" :color="$ncr->level == 1 ? 'rose' : 'amber'">
+                                    Level {{ $ncr->level }}
+                                </flux:badge>
+                            </div>
+                            <div class="text-xs text-zinc-600 dark:text-zinc-400 font-medium mt-1">
+                                {{ $ncr->audit->title }}
+                            </div>
+                        </div>
+                        <flux:badge size="sm" :color="$badgeColor">
+                            {{ ucwords(str_replace('_', ' ', $ncr->status)) }}
+                        </flux:badge>
+                    </div>
+
+                    <div class="text-xs text-zinc-500 line-clamp-2">
+                        {{ $ncr->description ?: $ncr->condition }}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-700/50">
+                        <div>
+                            <span class="text-zinc-400 block text-[10px] uppercase font-semibold">Unit</span>
+                            <span class="truncate block">{{ $ncr->unit->name ?? 'Unassigned Unit' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-zinc-400 block text-[10px] uppercase font-semibold">CAP Due</span>
+                            <span class="font-mono {{ $isOverdue ? 'text-rose-600 font-bold' : '' }}">
+                                {{ $ncr->cap_due_at ? $ncr->cap_due_at->format('M d, Y') : '—' }}
+                            </span>
+                            @if($isOverdue)
+                                <flux:badge size="xs" color="rose" class="block w-fit mt-0.5">Overdue</flux:badge>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end pt-1">
+                        <flux:button href="{{ route('ncrs.show', $ncr->id) }}" size="xs" variant="primary" icon="document-text" wire:navigate onclick="event.stopPropagation()">
+                            Manage CAP
+                        </flux:button>
+                    </div>
+                </div>
+            @empty
+                <div class="py-8 text-center text-zinc-500 text-xs">
+                    No Non-Conformance Reports match the selected criteria.
+                </div>
+            @endforelse
+        </div>
+
+        <!-- Desktop Table (>= md) -->
+        <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-left text-sm divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead class="bg-zinc-50 dark:bg-zinc-900/50 text-xs text-zinc-500 font-semibold uppercase">
                     <tr>

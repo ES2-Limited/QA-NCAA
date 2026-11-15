@@ -4,10 +4,12 @@ use App\Contracts\AiService;
 use App\Models\Audit;
 use App\Models\AuditApproval;
 use App\Services\CertificateGenerator;
-use Livewire\Component;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Component;
 
 new #[Title('Audit Approval Decision')] class extends Component {
+    #[Locked]
     public Audit $audit;
     public string $aiSummary = '';
     public string $approvalComment = '';
@@ -36,6 +38,20 @@ new #[Title('Audit Approval Decision')] class extends Component {
 
     public function generateAiSummary(AiService $ai)
     {
+        $userId = auth()->id() ?? request()->ip();
+        $executed = \Illuminate\Support\Facades\RateLimiter::attempt(
+            'ai-actions:'.$userId,
+            10,
+            function () {},
+            60
+        );
+
+        if (! $executed) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn('ai-actions:'.$userId);
+            session()->flash('error', "AI rate limit reached. Please wait {$seconds} seconds before generating summary.");
+            return;
+        }
+
         $this->isGeneratingAi = true;
 
         $ncrSummary = $this->audit->findings->map(function ($f) {

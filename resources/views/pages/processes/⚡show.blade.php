@@ -6,10 +6,12 @@ use App\Models\User;
 use App\Notifications\AuditAssigned;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Livewire\Component;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Component;
 
 new #[Title('Process Overview')] class extends Component {
+    #[Locked]
     public ?Process $process = null;
 
     // Schedule Audit Modal state

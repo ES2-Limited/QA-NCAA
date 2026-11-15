@@ -6,13 +6,15 @@ use App\Models\Finding;
 use App\Notifications\CapReviewed;
 use App\Notifications\CapSubmitted;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Livewire\Attributes\Title;
 
 new #[Title('NCR & CAP Resolution Details')] class extends Component {
     use WithFileUploads;
 
+    #[Locked]
     public Finding $ncr;
 
     // CAP Submission form (for auditee)
@@ -72,7 +74,7 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
 
         // Upload closure evidence
         foreach ($this->closureEvidence as $file) {
-            $path = $file->store('evidence/cap', 'public');
+            $path = $file->store('evidence/cap', 'local');
             $cap->attachments()->create([
                 'path' => $path,
                 'original_name' => $file->getClientOriginalName(),
@@ -257,9 +259,9 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
                     <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Original Audit Evidence:</span>
                     <div class="flex flex-wrap gap-2">
                         @foreach($ncr->answer->attachments as $att)
-                            <a href="{{ Storage::disk('public')->url($att->path) }}" target="_blank" class="w-20 h-16 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden block">
+                            <a href="{{ route('attachments.show', $att->id) }}" target="_blank" class="w-20 h-16 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden block">
                                 @if(str_starts_with($att->mime_type, 'image/'))
-                                    <img src="{{ Storage::disk('public')->url($att->path) }}" alt="{{ $att->original_name ?? 'Evidence attachment' }}" class="w-full h-full object-cover">
+                                    <img src="{{ route('attachments.show', $att->id) }}" alt="{{ $att->original_name ?? 'Evidence attachment' }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-[10px] bg-zinc-100 dark:bg-zinc-900 font-bold">📄 FILE</div>
                                 @endif
@@ -339,9 +341,9 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">CAP Closure Verification Evidence ({{ $ncr->cap->attachments->count() }}):</span>
                         <div class="flex flex-wrap gap-2">
                             @foreach($ncr->cap->attachments as $att)
-                                <a href="{{ Storage::disk('public')->url($att->path) }}" target="_blank" class="w-24 h-20 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden block">
+                                <a href="{{ route('attachments.show', $att->id) }}" target="_blank" class="w-24 h-20 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden block">
                                     @if(str_starts_with($att->mime_type, 'image/'))
-                                        <img src="{{ Storage::disk('public')->url($att->path) }}" alt="{{ $att->original_name ?? 'Evidence attachment' }}" class="w-full h-full object-cover">
+                                        <img src="{{ route('attachments.show', $att->id) }}" alt="{{ $att->original_name ?? 'Evidence attachment' }}" class="w-full h-full object-cover">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-[10px] bg-zinc-100 dark:bg-zinc-800 font-bold p-1 text-center">
                                             📄 {{ strtoupper(pathinfo($att->original_name, PATHINFO_EXTENSION)) }}

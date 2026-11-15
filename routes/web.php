@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\Attachment;
 use App\Models\Audit;
+use App\Models\AuditAnswer;
 use App\Models\Certificate;
+use App\Models\CorrectiveActionPlan;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Mechanisms\HandleRouting\LivewirePageController;
@@ -53,6 +56,36 @@ Route::middleware(['auth'])->group(function () {
 
         return Storage::disk('public')->download($cert->file_path, "{$cert->number}.pdf");
     })->name('certificates.download');
+
+    // Secure Evidence / Attachment download & viewing
+    Route::get('attachments/{attachment}/download', function (Attachment $attachment) {
+        $user = auth()->user();
+
+        // Authorize via parent model
+        $attachable = $attachment->attachable;
+        if ($attachable instanceof AuditAnswer) {
+            $audit = $attachable->audit;
+            if ($audit && ! $user->can('view', $audit)) {
+                abort(403);
+            }
+        } elseif ($attachable instanceof CorrectiveActionPlan) {
+            $finding = $attachable->ncr;
+            if ($finding && ! $user->can('view', $finding)) {
+                abort(403);
+            }
+        }
+
+        $disk = Storage::disk('local')->exists($attachment->path) ? 'local' : 'public';
+        if (! Storage::disk($disk)->exists($attachment->path)) {
+            abort(404, 'File not found on server.');
+        }
+
+        return Storage::disk($disk)->response(
+            $attachment->path,
+            $attachment->original_name,
+            ['Content-Type' => $attachment->mime_type]
+        );
+    })->name('attachments.show');
 });
 
 // Public Certificate Verification (no auth)

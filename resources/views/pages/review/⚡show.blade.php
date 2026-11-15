@@ -9,10 +9,12 @@ use App\Models\User;
 use App\Notifications\NcrRaised;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Livewire\Component;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Component;
 
 new #[Title('Audit Review & NCR Raising')] class extends Component {
+    #[Locked]
     public Audit $audit;
 
     // Reviewer Comments per answer
@@ -309,9 +311,9 @@ new #[Title('Audit Review & NCR Raising')] class extends Component {
                         <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Attached Evidence ({{ $answer->attachments->count() }}):</span>
                         <div class="flex flex-wrap gap-2">
                             @foreach($answer->attachments as $att)
-                                <a href="{{ Storage::disk('public')->url($att->path) }}" target="_blank" class="block group relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 w-20 h-16 bg-zinc-100 dark:bg-zinc-800">
+                                <a href="{{ route('attachments.show', $att->id) }}" target="_blank" class="block group relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 w-20 h-16 bg-zinc-100 dark:bg-zinc-800">
                                     @if(str_starts_with($att->mime_type, 'image/'))
-                                        <img src="{{ Storage::disk('public')->url($att->path) }}" alt="Evidence" class="w-full h-full object-cover group-hover:scale-105 transition">
+                                        <img src="{{ route('attachments.show', $att->id) }}" alt="Evidence" class="w-full h-full object-cover group-hover:scale-105 transition">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-[10px] text-zinc-600 font-bold p-1 text-center">
                                             📄 {{ strtoupper(pathinfo($att->original_name, PATHINFO_EXTENSION)) }}

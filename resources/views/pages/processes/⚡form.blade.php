@@ -10,13 +10,15 @@ use App\Models\Unit;
 use App\Services\DocumentTextExtractor;
 use App\Services\GeminiAiService;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Livewire\Attributes\Title;
 
 new #[Title('Process & Checklist Wizard')] class extends Component {
     use WithFileUploads;
 
+    #[Locked]
     public ?Process $process = null;
     public $step = 1;
 
@@ -135,7 +137,7 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
             'inlineFile' => 'required|file|mimes:pdf,docx|max:20480',
         ]);
 
-        $path = $this->inlineFile->store('documents', 'public');
+        $path = $this->inlineFile->store('documents', 'local');
 
         $doc = Document::create([
             'title' => $this->inlineTitle,
@@ -211,6 +213,20 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
 
     public function generateWithAi(AiServiceContract $ai, DocumentTextExtractor $extractor)
     {
+        $userId = auth()->id() ?? request()->ip();
+        $executed = \Illuminate\Support\Facades\RateLimiter::attempt(
+            'ai-actions:'.$userId,
+            10,
+            function () {},
+            60
+        );
+
+        if (! $executed) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn('ai-actions:'.$userId);
+            session()->flash('error', "AI rate limit reached. Please wait {$seconds} seconds before generating more questions.");
+            return;
+        }
+
         $this->validate([
             'aiScope' => 'required|string|max:255',
             'aiCount' => 'required|integer|min:1|max:20',
@@ -550,9 +566,9 @@ new #[Title('Process & Checklist Wizard')] class extends Component {
                             </div>
 
                             <div class="flex items-center space-x-1">
-                                <flux:button wire:click="moveQuestionUp({{ $idx }})" size="sm" variant="ghost" icon="arrow-up" :disabled="$idx === 0" />
-                                <flux:button wire:click="moveQuestionDown({{ $idx }})" size="sm" variant="ghost" icon="arrow-down" :disabled="$idx === count($questions) - 1" />
-                                <flux:button wire:click="removeQuestion({{ $idx }})" size="sm" variant="danger" icon="trash" />
+                                <flux:button wire:click="moveQuestionUp({{ $idx }})" size="sm" variant="ghost" icon="arrow-up" aria-label="Move question up" :disabled="$idx === 0" />
+                                <flux:button wire:click="moveQuestionDown({{ $idx }})" size="sm" variant="ghost" icon="arrow-down" aria-label="Move question down" :disabled="$idx === count($questions) - 1" />
+                                <flux:button wire:click="removeQuestion({{ $idx }})" size="sm" variant="danger" icon="trash" aria-label="Delete question" />
                             </div>
                         </div>
 

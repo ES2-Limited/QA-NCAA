@@ -1,14 +1,17 @@
 <?php
 
 use App\Models\Audit;
-use Livewire\Component;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Component;
 
 new #[Title('Audit Overview')] class extends Component {
+    #[Locked]
     public Audit $audit;
 
     public function mount($audit)
     {
+        $id = $audit instanceof Audit ? $audit->id : $audit;
         $this->audit = Audit::with([
             'process',
             'directorate',
@@ -17,7 +20,7 @@ new #[Title('Audit Overview')] class extends Component {
             'auditors',
             'responses',
             'findings',
-        ])->findOrFail($audit);
+        ])->findOrFail($id);
 
         $this->authorize('view', $this->audit);
     }

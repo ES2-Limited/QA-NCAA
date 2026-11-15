@@ -33,13 +33,11 @@ Route::middleware(['auth', 'role:system_admin|lead_auditor'])->group(function ()
     Route::get('admin/documents/{document}/download', function (Document $document) {
         Gate::authorize('download', $document);
 
-        Illuminate\Support\Facades\Gate::authorize('download', $document);
-
-        if (! Storage::disk('public')->exists($document->file_path)) {
+        if (! Storage::disk('local')->exists($document->file_path)) {
             abort(404, 'File not found on server.');
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk('local')->download(
             $document->file_path,
             $document->original_name,
             ['Content-Type' => $document->mime_type]

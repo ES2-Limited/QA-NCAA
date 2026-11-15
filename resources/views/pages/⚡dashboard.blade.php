@@ -131,6 +131,21 @@ new #[Title('Executive Dashboard')] class extends Component {
 
     public function generateReport(): void
     {
+        $userId = auth()->id() ?? request()->ip();
+        $executed = \Illuminate\Support\Facades\RateLimiter::attempt(
+            'ai-actions:'.$userId,
+            10,
+            function () {},
+            60
+        );
+
+        if (! $executed) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn('ai-actions:'.$userId);
+            $this->reportMarkdown = "AI rate limit reached. Please wait {$seconds} seconds before generating another report.";
+            $this->reportHtml = '<p class="text-rose-600 font-semibold">' . htmlspecialchars($this->reportMarkdown) . '</p>';
+            return;
+        }
+
         $this->reportLoading = true;
 
         $period = match ($this->reportPeriod) {

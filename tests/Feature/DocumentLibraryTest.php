@@ -33,7 +33,7 @@ test('lead_auditor can upload a PDF document', function () {
     ]);
 
     $doc = Document::where('title', 'NCAA Flight Safety Manual 2026')->first();
-    expect(Storage::disk('public')->exists($doc->file_path))->toBeTrue();
+    expect(Storage::disk('local')->exists($doc->file_path))->toBeTrue();
 });
 
 test('field_auditor gets 403 on document library routes', function () {
