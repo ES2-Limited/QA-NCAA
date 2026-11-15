@@ -39,6 +39,8 @@ new #[Title('Process Overview')] class extends Component {
                 'questions',
             ])->findOrFail($process);
 
+        $this->authorize('view', $this->process);
+
         $defaultScheduled = $this->process->type === 'unplanned'
             ? now()->format('Y-m-d')
             : ($this->process->next_due_at ? $this->process->next_due_at->format('Y-m-d') : now()->format('Y-m-d'));

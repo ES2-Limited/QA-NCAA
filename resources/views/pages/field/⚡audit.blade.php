@@ -106,6 +106,11 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
             return;
         }
 
+        $this->validate([
+            'newPhotos.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:10240',
+            'newFiles.*' => 'nullable|file|mimes:pdf,docx,doc|max:20480',
+        ]);
+
         // Auto-start audit on first save
         if ($this->audit->status === 'scheduled') {
             $this->audit->update(['status' => 'in_progress']);
@@ -287,7 +292,7 @@ new #[Layout('layouts.field.mobile')] #[Title('Conduct Audit — NCAA Field Exec
             </a>
             <div class="flex items-center gap-2">
                 @if($readOnly)
-                    <flux:badge size="sm" color="zinc">🔒 Locked / Submitted</flux:badge>
+                    <flux:badge size="sm" color="zinc">Submitted &bull; Locked</flux:badge>
                 @else
                     <flux:badge size="sm" :color="$audit->status === 'in_progress' ? 'amber' : 'zinc'">
                         {{ ucwords(str_replace('_', ' ', $audit->status)) }}

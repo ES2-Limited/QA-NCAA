@@ -147,7 +147,7 @@ new #[Title('Non-Conformance Reports (NCR)')] class extends Component {
                                         {{ $ncr->cap_due_at->format('M d, Y H:i') }}
                                     </span>
                                     @if($isOverdue)
-                                        <flux:badge size="xs" color="rose" class="block w-fit mt-0.5 animate-pulse">OVERDUE</flux:badge>
+                                        <flux:badge size="xs" color="rose" class="block w-fit mt-0.5 animate-pulse">Overdue</flux:badge>
                                     @endif
                                 @else
                                     —

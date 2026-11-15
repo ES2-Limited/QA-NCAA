@@ -39,19 +39,7 @@ class Audit extends Model
 
     public function process()
     {
-        return $this->belongsTo(Process::class, 'process_id')
-            ->withDefault(function () {
-                if ($this->checklist_id) {
-                    return Process::find($this->checklist_id);
-                }
-
-                return null;
-            });
-    }
-
-    public function checklist()
-    {
-        return $this->process();
+        return $this->belongsTo(Process::class, 'process_id');
     }
 
     public function directorate()

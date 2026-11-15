@@ -1,11 +1,11 @@
 {
-  "name": "NCAA DSD Quality & Audit Portal",
+  "name": "Nigeria Civil Aviation Authority — DSD QA/IA System",
   "short_name": "NCAA QA/IA",
-  "description": "Digital Quality Assurance & Internal Audit System for NCAA Directorate of Special Duties",
+  "description": "Digital Quality Assurance & Internal Audit System for Nigeria Civil Aviation Authority Directorate of Special Duties",
   "start_url": "/field",
   "display": "standalone",
-  "background_color": "#064e3b",
-  "theme_color": "#047857",
+  "background_color": "#1c1444",
+  "theme_color": "#2a1770",
   "orientation": "portrait-primary",
   "icons": [
     {

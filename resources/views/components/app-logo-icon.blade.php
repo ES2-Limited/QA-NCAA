@@ -1,1 +1,1 @@
-<img src="/images/logo-placeholder.svg" alt="DSD QA/IA System Logo" {{ $attributes }} />
+<img src="/images/ncaa-logo.png" alt="Nigeria Civil Aviation Authority Logo" {{ $attributes }} />

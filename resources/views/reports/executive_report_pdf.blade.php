@@ -12,14 +12,14 @@
             padding: 24px;
         }
         .header {
-            border-bottom: 2px solid #047857;
+            border-bottom: 2px solid #008751;
             padding-bottom: 12px;
             margin-bottom: 20px;
         }
         .title {
             font-size: 20px;
             font-weight: 800;
-            color: #064e3b;
+            color: #2a1770;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -67,10 +67,10 @@
         <table style="width: 100%;">
             <tr>
                 <td style="width: 60px; vertical-align: middle;">
-                    <img src="{{ public_path('images/logo-placeholder.svg') }}" width="48" height="48" alt="Logo">
+                    <img src="{{ public_path('images/ncaa-logo.png') }}" width="48" height="48" alt="NCAA Logo">
                 </td>
                 <td style="vertical-align: middle;">
-                    <div class="title">DSD QA/IA System &bull; Executive Report</div>
+                    <div class="title">Nigeria Civil Aviation Authority — DSD QA/IA System &bull; Executive Report</div>
                     <div class="meta">Directorate of Special Duties | Quality Assurance & Internal Audit Division</div>
                     <div class="meta">Report Generation Date: {{ $date }} | Coverage: {{ $period }}</div>
                 </td>

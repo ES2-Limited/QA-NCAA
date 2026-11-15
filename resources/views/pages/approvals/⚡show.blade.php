@@ -29,6 +29,8 @@ new #[Title('Audit Approval Decision')] class extends Component {
             'certificate',
         ])->findOrFail($id);
 
+        $this->authorize('approve', $this->audit);
+
         $this->aiSummary = $this->audit->ai_summary ?? $this->audit->ai_executive_summary ?? '';
     }
 

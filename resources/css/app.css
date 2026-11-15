@@ -11,6 +11,23 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
+    --color-primary: #2a1770;
+    --color-primary-dark: #1c104e;
+    --color-primary-light: #442a9d;
+    --color-primary-50: #f4f2fb;
+    --color-primary-100: #e8e4f7;
+    --color-primary-500: #2a1770;
+    --color-primary-600: #22125e;
+    --color-primary-700: #1a0d4c;
+
+    --color-accent: #008751;
+    --color-accent-dark: #00663d;
+    --color-accent-light: #00a865;
+    --color-accent-50: #edfcf5;
+    --color-accent-100: #d6f8e7;
+    --color-accent-content: #008751;
+    --color-accent-foreground: #ffffff;
+
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
     --color-zinc-200: #e5e5e5;
@@ -22,17 +39,22 @@
     --color-zinc-800: #262626;
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
+}
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
-    --color-accent-foreground: var(--color-white);
+:root {
+    --ncaa-primary: #2a1770;
+    --ncaa-primary-dark: #1c104e;
+    --ncaa-primary-light: #442a9d;
+    --ncaa-accent: #008751;
+    --ncaa-accent-dark: #00663d;
+    --ncaa-accent-light: #00a865;
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: #00a865;
+        --color-accent-content: #00a865;
+        --color-accent-foreground: #ffffff;
     }
 }
 

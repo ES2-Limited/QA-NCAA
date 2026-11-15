@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Document;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -30,6 +31,10 @@ Route::middleware(['auth', 'role:system_admin|lead_auditor'])->group(function ()
     Route::livewire('admin/documents', 'pages::admin.documents')->name('admin.documents');
 
     Route::get('admin/documents/{document}/download', function (Document $document) {
+        Gate::authorize('download', $document);
+
+        Illuminate\Support\Facades\Gate::authorize('download', $document);
+
         if (! Storage::disk('public')->exists($document->file_path)) {
             abort(404, 'File not found on server.');
         }

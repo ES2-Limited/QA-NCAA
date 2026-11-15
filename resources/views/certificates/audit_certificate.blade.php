@@ -11,27 +11,27 @@
             color: #18181b;
         }
         .border-frame {
-            border: 4px double #064e3b;
+            border: 4px double #2a1770;
             padding: 24px;
             min-height: 940px;
             position: relative;
         }
         .header {
             text-align: center;
-            border-bottom: 2px solid #047857;
+            border-bottom: 2px solid #008751;
             padding-bottom: 15px;
             margin-bottom: 25px;
         }
         .crest {
             font-size: 28px;
             font-weight: 900;
-            color: #064e3b;
+            color: #2a1770;
             letter-spacing: 2px;
         }
         .subtitle {
             font-size: 14px;
             font-weight: bold;
-            color: #047857;
+            color: #008751;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-top: 4px;
@@ -114,7 +114,7 @@
     <div class="border-frame">
         <div class="header">
             <div style="text-align: center; margin-bottom: 8px;">
-                <img src="{{ public_path('images/logo-placeholder.svg') }}" width="48" height="48" alt="Logo">
+                <img src="{{ public_path('images/ncaa-logo.png') }}" width="48" height="48" alt="NCAA Logo">
             </div>
             <div class="crest">DSD QA/IA SYSTEM</div>
             <div class="subtitle">Directorate of Special Duties (DSD) &bull; Internal Quality Assurance</div>

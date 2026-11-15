@@ -38,15 +38,20 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
             'cap.submitter',
         ])->findOrFail($id);
 
+        $this->authorize('view', $this->ncr);
+
         $this->targetDate = now()->addDays(7)->format('Y-m-d');
     }
 
     public function submitCap()
     {
+        $this->authorize('submitCap', $this->ncr);
+
         $this->validate([
             'rootCause' => 'required|string',
             'proposedAction' => 'required|string',
             'targetDate' => 'required|date',
+            'closureEvidence.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
         ]);
 
         $cap = CorrectiveActionPlan::updateOrCreate(
@@ -91,6 +96,8 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
 
     public function acceptCap()
     {
+        $this->authorize('reviewCap', $this->ncr);
+
         $cap = $this->ncr->cap;
         if (! $cap) {
             return;
@@ -115,6 +122,8 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
 
     public function rejectCap()
     {
+        $this->authorize('reviewCap', $this->ncr);
+
         $this->validate([
             'reviewerComment' => 'required|string',
         ]);
@@ -229,7 +238,7 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
                     <div class="font-bold font-mono {{ $ncr->isOverdue() ? 'text-rose-600' : 'text-zinc-900 dark:text-zinc-100' }} mt-0.5">
                         {{ $ncr->cap_due_at ? $ncr->cap_due_at->format('M d, Y H:i') : '—' }}
                         @if($ncr->isOverdue())
-                            <flux:badge size="xs" color="rose">OVERDUE</flux:badge>
+                            <flux:badge size="xs" color="rose">Overdue</flux:badge>
                         @endif
                     </div>
                 </div>
@@ -250,7 +259,7 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
                         @foreach($ncr->answer->attachments as $att)
                             <a href="{{ Storage::disk('public')->url($att->path) }}" target="_blank" class="w-20 h-16 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden block">
                                 @if(str_starts_with($att->mime_type, 'image/'))
-                                    <img src="{{ Storage::disk('public')->url($att->path) }}" class="w-full h-full object-cover">
+                                    <img src="{{ Storage::disk('public')->url($att->path) }}" alt="{{ $att->original_name ?? 'Evidence attachment' }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-[10px] bg-zinc-100 dark:bg-zinc-900 font-bold">📄 FILE</div>
                                 @endif
@@ -332,7 +341,7 @@ new #[Title('NCR & CAP Resolution Details')] class extends Component {
                             @foreach($ncr->cap->attachments as $att)
                                 <a href="{{ Storage::disk('public')->url($att->path) }}" target="_blank" class="w-24 h-20 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden block">
                                     @if(str_starts_with($att->mime_type, 'image/'))
-                                        <img src="{{ Storage::disk('public')->url($att->path) }}" class="w-full h-full object-cover">
+                                        <img src="{{ Storage::disk('public')->url($att->path) }}" alt="{{ $att->original_name ?? 'Evidence attachment' }}" class="w-full h-full object-cover">
                                     @else
                                         <div class="w-full h-full flex items-center justify-center text-[10px] bg-zinc-100 dark:bg-zinc-800 font-bold p-1 text-center">
                                             📄 {{ strtoupper(pathinfo($att->original_name, PATHINFO_EXTENSION)) }}

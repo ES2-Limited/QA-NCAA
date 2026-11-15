@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'DSD QA/IA System'),
+    'name' => env('APP_NAME', 'Nigeria Civil Aviation Authority — DSD QA/IA System'),
 
     /*
     |--------------------------------------------------------------------------

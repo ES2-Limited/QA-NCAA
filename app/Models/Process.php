@@ -55,14 +55,4 @@ class Process extends Model
     {
         return $this->hasMany(ChecklistQuestion::class)->orderBy('order');
     }
-
-    public function items()
-    {
-        return $this->questions();
-    }
-
-    public function checklistQuestions()
-    {
-        return $this->hasMany(ChecklistQuestion::class)->orderBy('order');
-    }
 }

@@ -18,6 +18,8 @@ new #[Title('Audit Overview')] class extends Component {
             'responses',
             'findings',
         ])->findOrFail($audit);
+
+        $this->authorize('view', $this->audit);
     }
 
     public function with()

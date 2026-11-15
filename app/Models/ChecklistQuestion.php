@@ -29,19 +29,4 @@ class ChecklistQuestion extends Model
     {
         return $this->belongsTo(Process::class);
     }
-
-    public function getItemCodeAttribute(): string
-    {
-        return 'Q-'.str_pad((string) $this->order, 2, '0', STR_PAD_LEFT);
-    }
-
-    public function getRequirementAttribute(): string
-    {
-        return $this->question;
-    }
-
-    public function getRegulatoryReferenceAttribute(): ?string
-    {
-        return $this->requirement_ref;
-    }
 }
