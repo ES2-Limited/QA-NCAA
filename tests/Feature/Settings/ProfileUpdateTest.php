@@ -108,3 +108,68 @@ test('correct password must be provided to delete account', function () {
 
     expect($user->fresh())->not->toBeNull();
 });
+
+test('user can update their notification preferences from profile tabs', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::settings.profile')
+        ->set('activeTab', 'notifications')
+        ->set('notif_audit_assigned_email', true)
+        ->set('notif_audit_assigned_inapp', false)
+        ->set('notif_ncr_raised_email', false)
+        ->set('notif_ncr_raised_inapp', true)
+        ->call('updateNotificationPreferences');
+
+    $response->assertHasNoErrors();
+
+    $user->refresh();
+
+    expect($user->notification_preferences)->toBeArray();
+    expect($user->notification_preferences['audit_assigned']['email'])->toBeTrue();
+    expect($user->notification_preferences['audit_assigned']['inapp'])->toBeFalse();
+    expect($user->notification_preferences['ncr_raised']['email'])->toBeFalse();
+    expect($user->notification_preferences['ncr_raised']['inapp'])->toBeTrue();
+});
+
+test('profile page displays header card with initials, role badges, and org hierarchy', function () {
+    $this->artisan('db:seed');
+
+    $user = User::where('email', 'lead_auditor@ncaa.gov.ng')->first();
+    expect($user)->not->toBeNull();
+
+    $this->actingAs($user);
+
+    $this->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee($user->name)
+        ->assertSee('lead auditor')
+        ->assertSee('Official Directorate Unit')
+        ->assertSee('Profile Details')
+        ->assertSee('Security')
+        ->assertSee('Notifications')
+        ->assertSee('Appearance');
+});
+
+test('user can logout other devices from the security tab', function () {
+    $user = User::factory()->create([
+        'password' => bcrypt('password123'),
+    ]);
+
+    $this->actingAs($user);
+
+    // Wrong password fails
+    Livewire::test('pages::settings.profile')
+        ->set('activeTab', 'security')
+        ->set('logout_password', 'wrong-secret')
+        ->call('logoutOtherDevices')
+        ->assertHasErrors(['logout_password']);
+
+    // Correct password succeeds
+    Livewire::test('pages::settings.profile')
+        ->set('activeTab', 'security')
+        ->set('logout_password', 'password123')
+        ->call('logoutOtherDevices')
+        ->assertHasNoErrors();
+});
