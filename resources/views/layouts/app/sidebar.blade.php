@@ -70,6 +70,9 @@
                         <flux:sidebar.item icon="cog-6-tooth" :href="route('admin.settings')" :current="request()->routeIs('admin.settings')" wire:navigate>
                             {{ __('System Settings') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="arrows-right-left" :href="route('admin.workflow')" :current="request()->routeIs('admin.workflow')" wire:navigate>
+                            {{ __('Approval Workflow') }}
+                        </flux:sidebar.item>
                     </flux:sidebar.group>
                 @endhasrole
             </flux:sidebar.nav>

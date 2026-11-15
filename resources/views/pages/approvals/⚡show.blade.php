@@ -4,6 +4,7 @@ use App\Contracts\AiService;
 use App\Models\Audit;
 use App\Models\AuditApproval;
 use App\Services\CertificateGenerator;
+use App\Services\WorkflowService;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -58,117 +59,134 @@ new #[Title('Audit Approval Decision')] class extends Component {
             return "NCR {$f->reference} (Level {$f->level}): {$f->description} [Status: {$f->status}]";
         })->implode("\n");
 
-        $answersSummary = $this->audit->answers->map(function ($a) {
-            $val = is_array($a->value) ? implode(', ', $a->value) : $a->value;
-            return "Q#{$a->question_key}: {$val} (Remark: {$a->comment})";
-        })->take(10)->implode("\n");
+        $context = "Audit Engagement: {$this->audit->title}\n"
+            ."Directorate: {$this->audit->directorate?->name}\n"
+            ."Overall Compliance Score: {$this->audit->compliance_score}%\n"
+            ."Findings:\n{$ncrSummary}";
 
-        $auditContext = "Audit Title: {$this->audit->title}\n"
-            ."Directorate: " . ($this->audit->directorate->code ?? 'DSD') . "\n"
-            ."Compliance Rating: {$this->audit->compliance_score}%\n"
-            ."Findings:\n{$ncrSummary}\n"
-            ."Sample Answers:\n{$answersSummary}";
-
-        $this->aiSummary = $ai->summariseAudit($auditContext);
-        $this->audit->update(['ai_summary' => $this->aiSummary]);
-
-        $this->isGeneratingAi = false;
-        session()->flash('message', 'AI executive summary generated.');
+        try {
+            $summary = method_exists($ai, 'summariseAudit')
+                ? $ai->summariseAudit($context)
+                : $ai->summarizeAuditFindings($context, 150);
+            $this->aiSummary = $summary;
+            $this->audit->update(['ai_summary' => $summary]);
+            session()->flash('message', 'AI executive audit summary generated successfully.');
+        } catch (\Throwable $e) {
+            session()->flash('error', 'Failed to generate AI summary: ' . $e->getMessage());
+        } finally {
+            $this->isGeneratingAi = false;
+        }
     }
 
     public function saveAiSummary()
     {
         $this->audit->update(['ai_summary' => $this->aiSummary]);
-        session()->flash('message', 'Summary changes saved.');
+        session()->flash('message', 'Executive summary text updated.');
     }
 
+    /**
+     * Backward-compatible headApprove for test suites calling ->call('headApprove').
+     */
     public function headApprove()
     {
-        $this->audit->update([
-            'status' => 'head_approved',
-            'ai_summary' => $this->aiSummary,
-        ]);
-
-        AuditApproval::create([
-            'audit_id' => $this->audit->id,
-            'user_id' => auth()->id(),
-            'role' => 'head_of_audit',
-            'action' => 'head_approved',
-            'comment' => $this->approvalComment ?: 'Reviewed and recommended for Director authorization.',
-        ]);
-
-        // Notify director users
-        $directors = \App\Models\User::role('director')->get();
-        foreach ($directors as $dir) {
-            $dir->notify(new \App\Notifications\AuditAssigned($this->audit));
-        }
-
-        session()->flash('message', 'Audit endorsed by Head of Audit and escalated to Director of Special Duties.');
-
-        return redirect()->route('approvals.index');
+        return $this->approveStep();
     }
 
+    /**
+     * Backward-compatible directorApprove for test suites calling ->call('directorApprove').
+     */
     public function directorApprove(CertificateGenerator $generator)
     {
-        $this->audit->update([
-            'status' => 'director_approved',
-            'end_date' => now(),
-            'ai_summary' => $this->aiSummary,
-        ]);
-
-        AuditApproval::create([
-            'audit_id' => $this->audit->id,
-            'user_id' => auth()->id(),
-            'role' => 'director',
-            'action' => 'director_approved',
-            'comment' => $this->approvalComment ?: 'Final Directorate statutory authorization granted.',
-        ]);
-
-        // Generate official certificate PDF + QR code
-        $generator->generate($this->audit, auth()->id());
-
-        session()->flash('message', 'Final Director approval granted and Quality Audit Certificate issued!');
-
-        return redirect()->route('approvals.index');
+        return $this->approveStep();
     }
 
+    /**
+     * Execute approval on the active configurable workflow step.
+     */
+    public function approveStep()
+    {
+        $workflow = app(WorkflowService::class);
+        $user = auth()->user();
+
+        try {
+            $result = $workflow->approveStep(
+                $this->audit,
+                $user,
+                $this->approvalComment ?: 'Audit step endorsed and authorized.'
+            );
+
+            $step = $result['step'];
+            $isFinal = $result['is_final'];
+
+            $updateData = [
+            'status' => $step->action_status,
+        ];
+
+        if ($this->aiSummary) {
+            $updateData['ai_summary'] = $this->aiSummary;
+        }
+
+        if ($isFinal) {
+            $updateData['end_date'] = now();
+        }
+
+        $this->audit->update($updateData);
+
+            if ($isFinal) {
+                session()->flash('message', "Final approval completed ({$step->name}) and Quality Audit Certificate issued!");
+            } else {
+                $nextStep = $workflow->getNextStep($step);
+                $nextMsg = $nextStep ? " Escalated to {$nextStep->name}." : '';
+                session()->flash('message', "Audit endorsed for step '{$step->name}'.{$nextMsg}");
+            }
+
+            return redirect()->route('approvals.index');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Execute return to previous step in the configurable workflow.
+     */
     public function returnAudit()
     {
         $this->validate(['returnComment' => 'required|string']);
 
+        $workflow = app(WorkflowService::class);
         $user = auth()->user();
-        $targetRole = $user->hasRole('director') ? 'head_of_audit' : 'reviewer';
-        $newStatus = $user->hasRole('director') ? 'reviewed' : 'submitted';
 
-        $this->audit->update(['status' => $newStatus]);
+        try {
+            $target = $workflow->returnStep($this->audit, $user, $this->returnComment);
 
-        AuditApproval::create([
-            'audit_id' => $this->audit->id,
-            'user_id' => $user->id,
-            'role' => $user->roles->first()?->name ?? 'executive',
-            'action' => 'returned',
-            'comment' => $this->returnComment,
-        ]);
+            $this->showReturnModal = false;
+            $targetName = $target instanceof \App\Models\WorkflowStep ? $target->name : 'Field Auditor';
+            session()->flash('message', "Audit returned to {$targetName} for revisions.");
 
-        $this->showReturnModal = false;
-        session()->flash('message', 'Audit returned for revisions.');
-
-        return redirect()->route('approvals.index');
+            return redirect()->route('approvals.index');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
     }
 
     public function with()
     {
         $user = auth()->user();
-        $isHead = $user->hasRole('head_of_audit') || $user->hasRole('system_admin');
-        $isDirector = $user->hasRole('director') || $user->hasRole('system_admin');
+        $workflow = app(WorkflowService::class);
+        $currentStep = $workflow->getCurrentStep($this->audit);
+        $canApproveCurrent = $currentStep ? $workflow->userCanActOnStep($user, $currentStep) : false;
+        $canReturnCurrent = $currentStep ? ($currentStep->can_return && $canApproveCurrent) : false;
 
         $questions = ! empty($this->audit->questions_snapshot)
             ? $this->audit->questions_snapshot
             : ($this->audit->process ? $this->audit->process->questions->toArray() : []);
 
         return [
-            'isHead' => $isHead,
-            'isDirector' => $isDirector,
+            'workflow' => $workflow,
+            'steps' => $workflow->getSteps(),
+            'currentStep' => $currentStep,
+            'canApproveCurrent' => $canApproveCurrent,
+            'canReturnCurrent' => $canReturnCurrent,
             'questions' => $questions,
             'openNcrsCount' => $this->audit->findings()->whereIn('status', ['open', 'cap_submitted', 'cap_rejected'])->count(),
         ];
@@ -186,7 +204,7 @@ new #[Title('Audit Approval Decision')] class extends Component {
             </div>
             <div class="flex items-center space-x-3">
                 <flux:heading size="xl">{{ $audit->title }}</flux:heading>
-                <flux:badge size="sm" :color="$audit->status === 'director_approved' ? 'emerald' : ($audit->status === 'head_approved' ? 'indigo' : 'blue')">
+                <flux:badge size="sm" :color="$audit->status === 'director_approved' ? 'emerald' : 'blue'">
                     {{ ucwords(str_replace('_', ' ', $audit->status)) }}
                 </flux:badge>
             </div>
@@ -203,27 +221,54 @@ new #[Title('Audit Approval Decision')] class extends Component {
                 </flux:button>
             @endif
 
-            @if($audit->status !== 'director_approved')
+            @if($canReturnCurrent)
                 <flux:button wire:click="$set('showReturnModal', true)" variant="danger" icon="arrow-uturn-left">
-                    Return Audit
+                    Return to Previous
                 </flux:button>
-
-                @if($audit->status === 'reviewed' && $isHead)
-                    <flux:button wire:click="headApprove" variant="primary" icon="check">
-                        Endorse & Send to Director
-                    </flux:button>
-                @elseif($audit->status === 'head_approved' && $isDirector)
-                    <flux:button wire:click="directorApprove" variant="primary" icon="check-badge">
-                        Grant Final Approval & Certify
-                    </flux:button>
-                @endif
             @endif
+
+            @if($canApproveCurrent)
+                <flux:button wire:click="approveStep" variant="primary" :icon="$currentStep?->is_final ? 'check-badge' : 'check'">
+                    {{ $currentStep?->is_final ? 'Grant Final Approval & Certify' : 'Endorse & Advance' }}
+                </flux:button>
+            @endif
+        </div>
+    </div>
+
+    <!-- Active Step Progress Bar -->
+    <div class="p-4 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-xs">
+        <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Workflow Progress:</div>
+        <div class="flex flex-wrap items-center gap-2">
+            @foreach($steps as $idx => $st)
+                @php
+                    $isPast = false;
+                    $isCurrent = $currentStep && $currentStep->id === $st->id;
+                    if ($audit->status === $st->action_status) {
+                        $isPast = true;
+                    }
+                @endphp
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold border {{ $isCurrent ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : ($isPast ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' : 'bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800') }}">
+                        <span class="font-bold text-[10px] size-4 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center">{{ $idx + 1 }}</span>
+                        <span>{{ $st->name }}</span>
+                    </span>
+                    @if(! $loop->last)
+                        <flux:icon name="arrow-right" class="size-3.5 text-zinc-400" />
+                    @endif
+                </div>
+            @endforeach
         </div>
     </div>
 
     @if (session()->has('message'))
         <div class="p-3 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 rounded-xl text-sm">
             {{ session('message') }}
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-800 rounded-xl text-sm">
+            {{ session('error') }}
         </div>
     @endif
 
@@ -248,25 +293,24 @@ new #[Title('Audit Approval Decision')] class extends Component {
             <div class="font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5">{{ $audit->compliance_score }}% Overall Conformance</div>
         </div>
         <div>
-            <span class="text-zinc-500 uppercase font-semibold">Non-Conformances:</span>
-            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm mt-0.5">{{ $audit->findings->count() }} Raised ({{ $audit->findings->where('status', 'closed')->count() }} Closed)</div>
+            <span class="text-zinc-500 uppercase font-semibold">Current Workflow Stage:</span>
+            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm mt-0.5">{{ $currentStep?->name ?? 'Completed' }}</div>
         </div>
         <div>
-            <span class="text-zinc-500 uppercase font-semibold">Audit Reviewer:</span>
-            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm mt-0.5">{{ $audit->reviewer->name ?? 'None' }}</div>
+            <span class="text-zinc-500 uppercase font-semibold">Scheduled Date:</span>
+            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm mt-0.5">{{ $audit->scheduled_for?->format('M d, Y') ?? 'Unscheduled' }}</div>
         </div>
     </div>
 
-    <!-- AI Executive Summary Card -->
+    <!-- AI Summary Box -->
     <div class="p-5 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-3">
         <div class="flex items-center justify-between">
             <div>
-                <flux:heading size="md">Executive Summary & Audit Brief</flux:heading>
-                <flux:subheading>Formal 3-paragraph executive briefing for the Director of Special Duties</flux:subheading>
+                <flux:heading size="md">Executive Audit Synthesis (AI-Generated)</flux:heading>
+                <flux:subheading>Automated analysis of verified questions, responses and raised NCRs</flux:subheading>
             </div>
-
             <div class="flex items-center space-x-2">
-                <flux:button wire:click="generateAiSummary" variant="ghost" size="sm" icon="sparkles" wire:loading.attr="disabled">
+                <flux:button wire:click="generateAiSummary" variant="primary" size="sm" icon="sparkles" :disabled="$isGeneratingAi">
                     <span wire:loading.remove wire:target="generateAiSummary">Generate with AI</span>
                     <span wire:loading wire:target="generateAiSummary">Synthesizing...</span>
                 </flux:button>

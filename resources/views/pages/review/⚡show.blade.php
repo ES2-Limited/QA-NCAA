@@ -113,21 +113,26 @@ new #[Title('Audit Review & NCR Raising')] class extends Component {
 
     public function forwardToHeadOfAudit()
     {
-        $this->audit->update([
-            'status' => 'reviewed',
-        ]);
+        $workflow = app(\App\Services\WorkflowService::class);
+        $user = auth()->user();
 
-        AuditApproval::create([
-            'audit_id' => $this->audit->id,
-            'user_id' => auth()->id(),
-            'role' => 'reviewer',
-            'action' => 'reviewed',
-            'comment' => 'Audit review completed and non-conformances assessed. Forwarded to Head of Audit.',
-        ]);
+        try {
+            $result = $workflow->approveStep(
+                $this->audit,
+                $user,
+                'Audit review completed and non-conformances assessed.'
+            );
 
-        session()->flash('message', 'Audit forwarded to Head of Audit for executive review.');
+            $step = $result['step'];
+            $nextStep = $workflow->getNextStep($step);
+            $msg = $nextStep ? "Audit forwarded to {$nextStep->name}." : "Audit endorsed for {$step->name}.";
 
-        return redirect()->route('review.index');
+            session()->flash('message', $msg);
+
+            return redirect()->route('review.index');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
     }
 
     public function returnToFieldAuditor()
@@ -136,27 +141,25 @@ new #[Title('Audit Review & NCR Raising')] class extends Component {
             'returnComment' => 'required|string',
         ]);
 
-        $this->audit->update([
-            'status' => 'returned',
-        ]);
+        $workflow = app(\App\Services\WorkflowService::class);
+        $user = auth()->user();
 
-        AuditApproval::create([
-            'audit_id' => $this->audit->id,
-            'user_id' => auth()->id(),
-            'role' => 'reviewer',
-            'action' => 'returned',
-            'comment' => $this->returnComment,
-        ]);
+        try {
+            $target = $workflow->returnStep($this->audit, $user, $this->returnComment);
 
-        // Notify assigned field auditors
-        foreach ($this->audit->auditors as $auditor) {
-            $auditor->notify(new \App\Notifications\AuditAssigned($this->audit));
+            // Notify assigned field auditors
+            foreach ($this->audit->auditors as $auditor) {
+                $auditor->notify(new \App\Notifications\AuditAssigned($this->audit));
+            }
+
+            $this->showReturnModal = false;
+            $targetName = $target instanceof \App\Models\WorkflowStep ? $target->name : 'Field Auditor';
+            session()->flash('message', "Audit returned to {$targetName} for clarifications or additional evidence.");
+
+            return redirect()->route('review.index');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
         }
-
-        $this->showReturnModal = false;
-        session()->flash('message', 'Audit returned to field auditor for clarifications or additional evidence.');
-
-        return redirect()->route('review.index');
     }
 
     public function with()

@@ -35,8 +35,9 @@ class DatabaseSeeder extends Seeder
         // Reset cached roles and permissions
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 0. Seed system business settings
+        // 0. Seed system business settings & workflow steps
         $this->call(SettingSeeder::class);
+        $this->call(WorkflowStepSeeder::class);
 
         // 1. Spatie RBAC Roles (Exactly the 7 requested roles)
         $roles = [

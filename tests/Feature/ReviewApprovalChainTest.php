@@ -15,6 +15,7 @@ use App\Notifications\CapReviewed;
 use App\Notifications\CapSubmitted;
 use App\Notifications\NcrRaised;
 use App\Services\CertificateGenerator;
+use Database\Seeders\WorkflowStepSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +26,10 @@ beforeEach(function () {
     foreach (['system_admin', 'lead_auditor', 'field_auditor', 'reviewer', 'head_of_audit', 'director', 'auditee'] as $r) {
         Role::findOrCreate($r);
     }
+
+    (new WorkflowStepSeeder)->run();
+
+    (new \Database\Seeders\WorkflowStepSeeder)->run();
 });
 
 function createReviewChainFixture(): array

@@ -11,18 +11,34 @@ new #[Title('Executive Approvals')] class extends Component {
     public function with()
     {
         $user = auth()->user();
+        $workflow = app(\App\Services\WorkflowService::class);
+        $steps = $workflow->getSteps();
 
         $query = Audit::with(['process.unit', 'directorate', 'leadAuditor', 'findings', 'certificate'])
             ->latest('id');
 
-        if ($user->hasRole('head_of_audit')) {
-            $query->whereIn('status', ['reviewed', 'head_approved', 'director_approved']);
-        } elseif ($user->hasRole('director')) {
-            $query->whereIn('status', ['head_approved', 'director_approved']);
+        if (! $user->hasRole('system_admin')) {
+            // Find which steps user is eligible to act on or view
+            $userActionStatuses = [];
+            foreach ($steps as $st) {
+                if ($workflow->userCanActOnStep($user, $st)) {
+                    // Previous step status that feeds into this step
+                    $prev = $workflow->getPreviousStep($st);
+                    $feedingStatus = $prev ? $prev->action_status : 'submitted';
+                    $userActionStatuses[] = $feedingStatus;
+                    $userActionStatuses[] = $st->action_status;
+                }
+            }
+            $userActionStatuses = array_unique($userActionStatuses);
+
+            if (! empty($userActionStatuses)) {
+                $query->whereIn('status', $userActionStatuses);
+            }
         }
 
         return [
             'audits' => $query->paginate(10),
+            'steps' => $steps,
             'isDirector' => $user->hasRole('director'),
             'isHead' => $user->hasRole('head_of_audit'),
         ];

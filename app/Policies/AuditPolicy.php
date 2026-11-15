@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Audit;
 use App\Models\User;
+use App\Services\WorkflowService;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class AuditPolicy
@@ -86,7 +87,20 @@ class AuditPolicy
      */
     public function approve(User $user, Audit $audit): bool
     {
-        return $user->hasAnyRole(['system_admin', 'head_of_audit', 'director']);
+        if ($user->hasRole('system_admin')) {
+            return true;
+        }
+
+        // Check if the user is authorized for any configured workflow step
+        $workflow = app(WorkflowService::class);
+        $steps = $workflow->getSteps();
+        foreach ($steps as $step) {
+            if ($workflow->userCanActOnStep($user, $step)) {
+                return true;
+            }
+        }
+
+        return $user->hasAnyRole(['head_of_audit', 'director', 'reviewer']);
     }
 
     /**
